@@ -11,9 +11,13 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class DocumentServiceImpl implements DocumentService{
+    private String[] mergeFieldNames = null;
+    private String[] mergeFieldValues = null;
 
     @Override
     public WordDocument importDocument() {
@@ -39,24 +43,19 @@ public class DocumentServiceImpl implements DocumentService{
         //.. Get the downloads folder path
         String downloadsFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
 
-        // Import the document
+        //1. Import the document
         WordDocument document = importDocument();
 
-        // Perform mail merge
+        //2. Fetch the plant details based on the plant name
+        fetchPlantDetails(plantDto.getPlant());
 
-        //Initialize the string array with merge field names
-        //String[] mergeFieldNames = new String[]{"plant", "plantManagerName", "cipSeniorManagerName", "plantAcronym", "plantCapacity", "city", "state", "reName", "reAcronym"};
-        String[] mergeFieldNames = new String[]{"plant"};
-
-        //Initialize the string array with field values
-        String[] mergeFieldValues = new String[]{plantDto.getPlant()};
-
+        //3. Perform mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
         try {
             //Executes the Mail merge operation that replaces the matching field names with field values respectively
             document.getMailMerge().execute(mergeFieldNames, mergeFieldValues);
 
-            //Save and close the WordDocument instance
-            document.save(downloadsFolderPath + File.separator + "MailMergeWord.docx");
+            //3. Save and close the WordDocument instance
+            document.save(downloadsFolderPath + File.separator + "MailMergeWord2.docx");
             document.close();
         }
         catch (Exception e) {
@@ -66,8 +65,23 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     @Override
-    public PlantDetails fetchPlantDetails(PlantDto plantDto) {
-        // TODO Elasticsearch query to fetch plant details based on plantDto
-        return null;
+    public void fetchPlantDetails(String plant) {
+        // Plant details map
+        Map<String, String> plantDetails = new HashMap<>();
+        plantDetails.put("plant", plant);
+
+        // TODO Elasticsearch query to fetch plant details based on plant name
+
+        // Initializing the merge field names and values arrays based on the plant details map size
+        mergeFieldNames = new String[plantDetails.size()];
+        mergeFieldValues = new String[plantDetails.size()];
+
+        // Populate the merge field names and values from the plant details map
+        int i = 0;
+        for (Map.Entry<String, String> entry : plantDetails.entrySet()) {
+            mergeFieldNames[i] = entry.getKey();
+            mergeFieldValues[i] = entry.getValue();
+            i++;
+        }
     }
 }

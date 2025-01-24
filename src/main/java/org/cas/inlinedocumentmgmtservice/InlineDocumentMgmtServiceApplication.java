@@ -45,12 +45,6 @@ public class InlineDocumentMgmtServiceApplication {
             document.save(downloadsFolderPath + File.separator + "Template.docx", FormatType.Docx);
 
             document.close();
-
-            DocumentServiceImpl documentService = new DocumentServiceImpl();
-            PlantDto plantDto = new PlantDto();
-            plantDto.setPlant("Plant 1 in NERC");
-
-            documentService.mailMerge(plantDto);
         }
 
         catch (Exception e) {

@@ -11,6 +11,16 @@ import lombok.Setter;
 @AllArgsConstructor
 public class PlantDto {
     private int id;
-    private String plant;
+    public static String plant;
+
+    // Setter for plant
+    public void setPlant(String plant) {
+        this.plant = plant;
+    }
+
+    // Getter for plant
+    public String getPlant() {
+        return plant;
+    }
 
 }

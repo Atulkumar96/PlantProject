@@ -39,5 +39,13 @@ public class InlineDocumentMgmtServiceApplication {
             e.printStackTrace();
         }
 
+        //2. Test protectDocument method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            documentService.protectDocument();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 }

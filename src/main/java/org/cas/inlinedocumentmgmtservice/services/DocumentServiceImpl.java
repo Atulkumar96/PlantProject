@@ -1,6 +1,7 @@
 package org.cas.inlinedocumentmgmtservice.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.syncfusion.docio.*;
 import com.syncfusion.docio.FormFieldType;
 //import com.syncfusion.javahelper.drawing.Color;
@@ -17,14 +18,12 @@ import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.awt.Color;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class DocumentServiceImpl implements DocumentService{
@@ -103,6 +102,7 @@ public class DocumentServiceImpl implements DocumentService{
             WCommentFormat format = comment.getFormat();
             String author = format.getUser(); // Fetch Author
             String initials = format.getUserInitials(); // Fetch Author initials
+            LocalDateTime commentDateTime =  format.getDateTime(); // Fetch comment date and time
 
             //- Extract comment text
             String commentText = extractTextFromWTextBody(comment.getTextBody());
@@ -114,8 +114,9 @@ public class DocumentServiceImpl implements DocumentService{
                     ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
                     : "";
 
+
             // Add extracted comment to the list
-            commentsList.add(new CommentDto(author, initials, commentText, parentInfo));
+            commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
         }
 
         // Close the document and return the comments list
@@ -123,6 +124,7 @@ public class DocumentServiceImpl implements DocumentService{
 
         // Return the comments list as a JSON
         ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule()); // Enable LocalDateTime support
         return objectMapper.writeValueAsString(commentsList);
         //return commentsList;
     }
@@ -145,6 +147,9 @@ public class DocumentServiceImpl implements DocumentService{
             String author = format.getUser(); // Fetch Author
             String initials = format.getUserInitials(); // Fetch Author initials
 
+            // Fetch comment date and time
+            LocalDateTime commentDateTime = format.getDateTime();
+
             // Extract comment text
             String commentText = extractTextFromWTextBody(comment.getTextBody());
 
@@ -155,7 +160,7 @@ public class DocumentServiceImpl implements DocumentService{
                     : "";
 
             // Add extracted comment to the list
-            commentsList.add(new CommentDto(author, initials, commentText, parentInfo));
+            commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
         }
 
         // Close the document and return the comments list
@@ -332,6 +337,83 @@ public class DocumentServiceImpl implements DocumentService{
         return highlightColor.equals(green);
     }
     */
+
+    public void protectDocument() throws Exception {
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        WordDocument document = new WordDocument(inputFilePath);
+
+        WSection section = document.getSections().get(0);
+        WTable table = section.getTables().get(2);
+
+        //Iterate the rows of the table.
+        for (Object row_tempObj : table.getRows()) {
+            WTableRow row = (WTableRow) row_tempObj;
+            //Iterate through the cells of rows.
+            for (Object cell_tempObj : row.getCells()) {
+                WTableCell cell = (WTableCell) cell_tempObj;
+                //Iterate through the paragraphs of the cell.
+                for (Object paragraph_tempObj : cell.getParagraphs()) {
+                    WParagraph paragraph = (WParagraph) paragraph_tempObj;
+
+                    //if the cell has BackColor as Green then make that cell editable
+                    if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
+                        //paragraph.appendText("I am a");
+                        for (Object paragraphs : cell.getParagraphs()) {
+                            WParagraph paragraphInGreen = (WParagraph) paragraphs;
+                            String paragraphInGreenValue = paragraphInGreen.getText();
+
+                            paragraphInGreen.setText("");
+                            System.out.println(paragraphInGreen.getText());
+
+                            //Appends text content control to the paragraph.
+                            IInlineContentControl contentControl = (InlineContentControl)paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
+                            WTextRange textRange = new WTextRange(document);
+                            textRange.setText(paragraphInGreenValue);
+                            //Adds new text to the rich text content control.
+                            contentControl.getParagraphItems().add(textRange);
+                            //Sets tag appearance for the content control.
+                            //contentControl.getContentControlProperties().setAppearance(ContentControlAppearance.Tags);
+                            //Sets a tag property to identify the content control.
+                            //contentControl.getContentControlProperties().setTag("Rich Text");
+                            //Sets a title for the content control.
+                            //contentControl.getContentControlProperties().setTitle("Text");
+                            //Sets the color for the content control.
+                            //contentControl.getContentControlProperties().setColor(ColorSupport.getMagenta());
+//Gets the type of content control.
+                            //ContentControlType controlType = contentControl.getContentControlProperties().getType();
+//Enables content control lock.
+                            contentControl.getContentControlProperties().setLockContentControl(false);
+//Protects the contents of content control.
+                            contentControl.getContentControlProperties().setLockContents(false);
+                        }
+
+                    }
+                    // Referring
+                    if (paragraph.getText().contains("Text entry area with Green background:")) {
+                        //cell.getCellFormat().setBackColor(ColorSupport.getGreen());
+                        ColorSupport backColor = cell.getCellFormat().getBackColor();
+                        System.out.println("Color: "+backColor);
+                    }
+                }
+            }
+        }
+
+        //Set the protection to allow to modify the form fields type
+        document.protect(ProtectionType.AllowOnlyFormFields);
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocument1.docx";
+        document.save(outputFilePath);
+        document.close();
+    }
+
+//    private boolean isGreenBackground(ColorSupport highlightColor) {
+//        // Implement the method to compare the color
+//        // Assuming that getHighlightColor() returns a ColorSupport object
+//        ColorSupport green = ColorSupport.getGreen();
+//        return highlightColor.equals(green);
+//    }
 
     // mailMerge helper method: to fetch plant details based on the plant name
     @Override

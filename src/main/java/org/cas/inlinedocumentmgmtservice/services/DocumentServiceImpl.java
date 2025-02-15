@@ -1,15 +1,27 @@
 package org.cas.inlinedocumentmgmtservice.services;
 
-import com.syncfusion.docio.MailMergeDataTable;
-import com.syncfusion.docio.WordDocument;
-import com.syncfusion.javahelper.system.collections.generic.ListSupport;
-import org.cas.inlinedocumentmgmtservice.dtos.PlantDetails;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.syncfusion.docio.*;
+import com.syncfusion.docio.FormFieldType;
+//import com.syncfusion.javahelper.drawing.Color;
+import com.syncfusion.javahelper.system.drawing.ColorSupport;
+import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+//import com.syncfusion.javahelper.drawing.Color;
+
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.awt.Color;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +31,7 @@ public class DocumentServiceImpl implements DocumentService{
     private String[] mergeFieldNames = null;
     private String[] mergeFieldValues = null;
 
+    // Import the document from the resources folder
     @Override
     public WordDocument importDocument() {
 
@@ -37,10 +50,14 @@ public class DocumentServiceImpl implements DocumentService{
         }
     }
 
+    /**
+     * Performs mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
+     * @param plantDto PlantDto object
+     */
     @Override
     public void mailMerge(PlantDto plantDto) {
 
-        //.. Get the downloads folder path
+        // Get the download folder path
         String downloadsFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
 
         //1. Import the document
@@ -64,11 +81,264 @@ public class DocumentServiceImpl implements DocumentService{
 
     }
 
+    /**
+     * Extracts review comments from the Word document
+     * @param documentPath
+     * @return JSON formatted String of the extracted comments
+     * @throws Exception
+     */
+    public String extractReviewComments(String documentPath) throws Exception {
+
+        // Load the Word document
+        WordDocument document = new WordDocument(documentPath, FormatType.Docx);
+
+        // List to store extracted comments
+        List<CommentDto> commentsList = new ArrayList<>();
+
+        // Iterate through all comments in the document
+        for (Object obj : document.getComments()){
+            WComment comment = (WComment) obj;
+
+            // Fetch comment author, initials, and text
+            WCommentFormat format = comment.getFormat();
+            String author = format.getUser(); // Fetch Author
+            String initials = format.getUserInitials(); // Fetch Author initials
+
+            //- Extract comment text
+            String commentText = extractTextFromWTextBody(comment.getTextBody());
+
+            //- Handle reply comments by checking their ancestor (parent comment)
+            WComment parentComment = (WComment) comment.getAncestor();
+
+            String parentInfo = (parentComment != null)
+                    ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
+                    : "";
+
+            // Add extracted comment to the list
+            commentsList.add(new CommentDto(author, initials, commentText, parentInfo));
+        }
+
+        // Close the document and return the comments list
+        document.close();
+
+        // Return the comments list as a JSON
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.writeValueAsString(commentsList);
+        //return commentsList;
+    }
+
+    // TODO: Test this overloaded extractReviewComments method, if required from Frontend Word Editor or any other client
+    public List<CommentDto> extractReviewComments(MultipartFile file) throws Exception {
+        // Load the Word document from the MultipartFile input stream
+        InputStream inputStream = file.getInputStream();
+        WordDocument document = new WordDocument(inputStream, FormatType.Docx);
+
+        // List to store extracted comments
+        List<CommentDto> commentsList = new ArrayList<>();
+
+        // Iterate through all comments in the document
+        for (Object obj : document.getComments()) {
+            WComment comment = (WComment) obj;
+
+            // Fetch comment author, initials, and text
+            WCommentFormat format = comment.getFormat();
+            String author = format.getUser(); // Fetch Author
+            String initials = format.getUserInitials(); // Fetch Author initials
+
+            // Extract comment text
+            String commentText = extractTextFromWTextBody(comment.getTextBody());
+
+            // Handle reply comments by checking their ancestor (parent comment)
+            WComment parentComment = (WComment) comment.getAncestor();
+            String parentInfo = (parentComment != null)
+                    ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
+                    : "";
+
+            // Add extracted comment to the list
+            commentsList.add(new CommentDto(author, initials, commentText, parentInfo));
+        }
+
+        // Close the document and return the comments list
+        document.close();
+        inputStream.close();
+
+        return commentsList;
+    }
+
+    /**
+    public String protectDocumentEnableSpecificSection(MultipartFile file) throws Exception {
+        try (InputStream inputStream = file.getInputStream();
+             WordDocument document = new WordDocument(inputStream, FormatType.Docx)) {
+
+            // Apply document-wide read-only protection
+            document.protect(ProtectionType.AllowOnlyReading);
+
+            for (Object obj : document.getSections()) {
+                if (obj instanceof WSection section) {
+                    boolean isEditable = false;
+
+                    for (Object child : section.getBody().getChildEntities()) {
+                        if (child instanceof WParagraph paragraph) {
+                            ColorSupport backgroundColor = paragraph.getParagraphFormat().getBackColor();
+                            String hexColor = (backgroundColor != null) ? backgroundColor.toString() : "";
+
+                            if ("#00FF00".equalsIgnoreCase(hexColor)) {
+                                isEditable = true;
+                                break; // If any paragraph has a green background, make the section editable
+                            }
+                        }
+                    }
+
+                    if (isEditable) {
+                        addEditableContentControl(section);
+                    }
+                }
+            }
+
+            // Convert document to SFDT format
+            String sfdtContent;
+            try {
+                sfdtContent = WordProcessorHelper.load(document);
+            } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause();
+                throw new Exception("Error loading document: " + (cause != null ? cause.getMessage() : e.getMessage()), e);
+            }
+
+            return sfdtContent;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "{\"sections\":[{\"blocks\":[{\"inlines\":[{\"text\":\"" + e.getMessage() + "\"}]}]}]}";
+        }
+    }
+
+    private void addEditableContentControl(WSection section) throws Exception {
+        // Create a block-level content control for the section body
+        BlockContentControl contentControl = new BlockContentControl(section.getDocument(), ContentControlType.RichText);
+
+        // Set content control properties
+        contentControl.getContentControlProperties().setAppearance(ContentControlAppearance.Tags);
+        contentControl.getContentControlProperties().setTag("Editable Section");
+        contentControl.getContentControlProperties().setTitle("Editable Content");
+
+        // Unlock the content inside this section
+        contentControl.getContentControlProperties().setLockContentControl(true); // Prevent deletion
+        contentControl.getContentControlProperties().setLockContents(false); // Allow editing
+
+        // Move all entities from the section body into the content control
+        EntityCollection entities = section.getBody().getChildEntities();
+        while (entities.getCount() > 0) {
+            IEntity entity = entities.get(0);
+            entities.remove(entity);
+            contentControl.getChildEntities().add(entity); // Move entity to content control
+        }
+
+        // Add the editable content control back to the section body
+        section.getBody().getChildEntities().add(contentControl);
+    }
+    */
+    /**
+    public void protectDocument() throws Exception {
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Protect the entire document
+        document.protect(ProtectionType.AllowOnlyFormFields, "password");
+
+        // Iterate through each section in the document
+        for (int i = 0; i < document.getSections().getCount(); i++) {
+            WSection section = document.getSections().get(i);
+
+            // Iterate through each paragraph in the section
+            for (int j = 0; j < section.getBody().getChildEntities().getCount(); j++) {
+                Object entity = section.getBody().getChildEntities().get(j);
+
+                // Check if the entity is a paragraph
+                if (entity instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) entity;
+
+                    // Iterate through each item in the paragraph
+                    for (int k = 0; k < paragraph.getChildEntities().getCount(); k++) {
+                        Object item = paragraph.getChildEntities().get(k);
+
+                        // Check if the item is a text range
+                        if (item instanceof WTextRange) {
+                            WTextRange textRange = (WTextRange) item;
+
+                            // Check if the background color is green
+                            if (isGreenBackground(textRange.getCharacterFormat().getHighlightColor())) {
+                                // Add a bookmark around the green background text
+                                String bookmarkName = "EditableText" + i + "_" + j + "_" + k;
+                                paragraph.getItems().insert(k, new BookmarkStart(document, bookmarkName));
+                                paragraph.getItems().insert(k + 2, new BookmarkEnd(document, bookmarkName));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Iterate through tables in the section
+            for (int j = 0; j < section.getTables().getCount(); j++) {
+                WTable table = section.getTables().get(j);
+
+                for (int k = 0; k < table.getRows().getCount(); k++) {
+                    WTableRow row = table.getRows().get(k);
+
+                    for (int l = 0; l < row.getCells().getCount(); l++) {
+                        WTableCell cell = row.getCells().get(l);
+
+                        // Iterate through each paragraph in the table cell
+                        for (int m = 0; m < cell.getChildEntities().getCount(); m++) {
+                            Object entity = cell.getChildEntities().get(m);
+
+                            // Check if the entity is a paragraph
+                            if (entity instanceof WParagraph) {
+                                WParagraph paragraph = (WParagraph) entity;
+
+                                // Iterate through each item in the paragraph
+                                for (int n = 0; n < paragraph.getChildEntities().getCount(); n++) {
+                                    Object item = paragraph.getChildEntities().get(n);
+
+                                    // Check if the item is a text range
+                                    if (item instanceof WTextRange) {
+                                        WTextRange textRange = (WTextRange) item;
+
+                                        // Check if the background color is green
+                                        if (isGreenBackground(textRange.getCharacterFormat().getHighlightColor())) {
+                                            // Add a bookmark around the green background text
+                                            String bookmarkName = "EditableText" + i + "_" + j + "_" + k + "_" + l + "_" + m;
+                                            paragraph.getItems().insert(n, new BookmarkStart(document, bookmarkName));
+                                            paragraph.getItems().insert(n + 2, new BookmarkEnd(document, bookmarkName));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocument.docx";
+        document.save(outputFilePath);
+        document.close();
+    }
+
+    private static boolean isGreenBackground(Object highlightColor) {
+        // Implement the method to compare the color
+        // Assuming that getHighlightColor() returns a ColorSupport object
+        ColorSupport green = ColorSupport.getGreen();
+        return highlightColor.equals(green);
+    }
+    */
+
+    // mailMerge helper method: to fetch plant details based on the plant name
     @Override
     public void fetchPlantDetails(String plant) {
         // Plant details map
         Map<String, String> plantDetails = new HashMap<>();
-        plantDetails.put("plant", plant);
+        plantDetails.put("plant1", plant);
 
         // TODO Elasticsearch query to fetch plant details based on plant name
 
@@ -83,5 +353,21 @@ public class DocumentServiceImpl implements DocumentService{
             mergeFieldValues[i] = entry.getValue();
             i++;
         }
+    }
+
+    // extractReviewComments helper method: Extracts text from WTextBody
+    private static String extractTextFromWTextBody(WTextBody textBody) throws Exception {
+        StringBuilder textContent = new StringBuilder();
+        for (Object paraObj : textBody.getChildEntities()) {
+            if (paraObj instanceof WParagraph) {
+                WParagraph paragraph = (WParagraph) paraObj;
+                for (Object child : paragraph.getChildEntities()) {
+                    if (child instanceof WTextRange) {
+                        textContent.append(((WTextRange) child).getText()).append(" ");
+                    }
+                }
+            }
+        }
+        return textContent.toString().trim();
     }
 }

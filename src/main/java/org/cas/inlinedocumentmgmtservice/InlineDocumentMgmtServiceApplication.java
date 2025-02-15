@@ -1,15 +1,22 @@
 package org.cas.inlinedocumentmgmtservice;
 
+import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
+import org.cas.inlinedocumentmgmtservice.services.DocumentService;
 import org.cas.inlinedocumentmgmtservice.services.DocumentServiceImpl;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import com.syncfusion.licensing.*;
+// Refer the licensing package
+import com.syncfusion.licensing.SyncfusionLicenseProvider;
+
 
 import com.syncfusion.docio.*;
 import com.syncfusion.javahelper.system.*;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 @SpringBootApplication
 public class InlineDocumentMgmtServiceApplication {
@@ -17,39 +24,20 @@ public class InlineDocumentMgmtServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(InlineDocumentMgmtServiceApplication.class, args);
 
-        // Register Syncfusion license
+        // Registered Syncfusion license
         SyncfusionLicenseProvider.registerLicense("GTIlMmhha31ifWBgaGBifGJhfGpqampzYWBpZmppZmpoMicmPxMwPzIhOicqICogJzY+IDo9MH0wPD4=");
 
-
+        //1. Test extractReviewComments method
         try {
-            // 1.
-            // Get the downloads folder path
-            String downloadsFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
-
-
-            //Creates an instance of WordDocument Instance (Empty Word Document).
-                    WordDocument document = new WordDocument();
-
-            //Add a section and paragraph in the empty document.
-                    document.ensureMinimal();
-            //Append text to the last paragraph of the document.
-                    document.getLastParagraph().appendText("Hello World");
-            //Save and close the Word document.
-                    document.save(downloadsFolderPath + File.separator + "Result3.docx");
-
-            // 2.
-            //Appends merge field to the last paragraph.
-            document.getLastParagraph().appendField("FullName", FieldType.FieldMergeField);
-
-            //Saves the Word document.
-            document.save(downloadsFolderPath + File.separator + "Template.docx", FormatType.Docx);
-
-            document.close();
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            //C:\Users\Lenovo\Desktop\Inline Document Service\Test
+            String commentsList = documentService.extractReviewComments("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\Plant-NERC-RCP-CIP-002.docx");
+            //for (CommentDto comment : commentsList) {
+            System.out.println(commentsList);
+            //}
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
-
 }

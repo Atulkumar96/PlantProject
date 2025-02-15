@@ -63,7 +63,7 @@
             <groupId>com.syncfusion</groupId>
             <artifactId>syncfusion-docio</artifactId>
             <version>28.1.33</version>
-<!--            <scope>runtime</scope>-->
+            <!--            <scope>runtime</scope>-->
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.syncfusion/syncfusion-javahelper -->
@@ -71,7 +71,7 @@
             <groupId>com.syncfusion</groupId>
             <artifactId>syncfusion-javahelper</artifactId>
             <version>28.1.33</version>
-<!--            <scope>runtime</scope>-->
+            <!--            <scope>runtime</scope>-->
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.syncfusion/syncfusion-licensing -->
@@ -79,8 +79,51 @@
             <groupId>com.syncfusion</groupId>
             <artifactId>syncfusion-licensing</artifactId>
             <version>28.1.33</version>
-<!--            <scope>runtime</scope>-->
+            <!--            <scope>runtime</scope>-->
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.syncfusion/syncfusion-ej2-wordprocessor -->
+        <dependency>
+            <groupId>com.syncfusion</groupId>
+            <artifactId>syncfusion-ej2-wordprocessor</artifactId>
+            <version>28.1.33</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.syncfusion/syncfusion-ej2-spellchecker -->
+        <dependency>
+            <groupId>com.syncfusion</groupId>
+            <artifactId>syncfusion-ej2-spellchecker</artifactId>
+            <version>28.2.4</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.twelvemonkeys.imageio/imageio-core -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>3.7.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.twelvemonkeys.imageio/imageio-tiff -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>3.7.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.twelvemonkeys.imageio/imageio-jpeg -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-jpeg</artifactId>
+            <version>3.7.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.twelvemonkeys.common/common-lang -->
+        <dependency>
+            <groupId>com.twelvemonkeys.common</groupId>
+            <artifactId>common-lang</artifactId>
+            <version>3.7.0</version>
+        </dependency>
+
 
 
     </dependencies>

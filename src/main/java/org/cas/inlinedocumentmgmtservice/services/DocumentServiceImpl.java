@@ -343,61 +343,99 @@ public class DocumentServiceImpl implements DocumentService{
         String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
         WordDocument document = new WordDocument(inputFilePath);
 
-        WSection section = document.getSections().get(0);
-        WTable table = section.getTables().get(2);
+        // Iterate through the sections in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
 
-        //Iterate the rows of the table.
-        for (Object row_tempObj : table.getRows()) {
-            WTableRow row = (WTableRow) row_tempObj;
-            //Iterate through the cells of rows.
-            for (Object cell_tempObj : row.getCells()) {
-                WTableCell cell = (WTableCell) cell_tempObj;
-                //Iterate through the paragraphs of the cell.
-                for (Object paragraph_tempObj : cell.getParagraphs()) {
-                    WParagraph paragraph = (WParagraph) paragraph_tempObj;
+            // Iterate through the Tables in the section
+            for (Object tableObj : section.getTables()) {
+                WTable table = (WTable) tableObj;
 
-                    //if the cell has BackColor as Green then make that cell editable
-                    if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
-                        //paragraph.appendText("I am a");
-                        for (Object paragraphs : cell.getParagraphs()) {
-                            WParagraph paragraphInGreen = (WParagraph) paragraphs;
-                            String paragraphInGreenValue = paragraphInGreen.getText();
+                //Iterate the rows of the table. table -> rows -> cells -> paragraphs
+                for (Object row_tempObj : table.getRows()) {
+                    WTableRow row = (WTableRow) row_tempObj;
 
-                            paragraphInGreen.setText("");
-                            System.out.println(paragraphInGreen.getText());
+                    //Iterate through the cells of rows.
+                    for (Object cell_tempObj : row.getCells()) {
+                        WTableCell cell = (WTableCell) cell_tempObj;
 
-                            //Appends text content control to the paragraph.
-                            IInlineContentControl contentControl = (InlineContentControl)paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
-                            WTextRange textRange = new WTextRange(document);
-                            textRange.setText(paragraphInGreenValue);
-                            //Adds new text to the rich text content control.
-                            contentControl.getParagraphItems().add(textRange);
-                            //Sets tag appearance for the content control.
-                            //contentControl.getContentControlProperties().setAppearance(ContentControlAppearance.Tags);
-                            //Sets a tag property to identify the content control.
-                            //contentControl.getContentControlProperties().setTag("Rich Text");
-                            //Sets a title for the content control.
-                            //contentControl.getContentControlProperties().setTitle("Text");
-                            //Sets the color for the content control.
-                            //contentControl.getContentControlProperties().setColor(ColorSupport.getMagenta());
-//Gets the type of content control.
-                            //ContentControlType controlType = contentControl.getContentControlProperties().getType();
-//Enables content control lock.
-                            contentControl.getContentControlProperties().setLockContentControl(false);
-//Protects the contents of content control.
-                            contentControl.getContentControlProperties().setLockContents(false);
+                        //If the cell has BackColor as Green then make that cell editable
+                        if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
+
+                            //Iterate through the paragraphs of the cell
+                            for (Object paragraphs : cell.getParagraphs()) {
+                                WParagraph paragraphInGreen = (WParagraph) paragraphs;
+
+                                // Get the text inside the paragraphInGreen
+                                String paragraphInGreenValue = paragraphInGreen.getText();
+
+                                // Clear existing text to replace with an editable content control
+                                paragraphInGreen.setText("");
+
+                                // Create an inline content control (editable field)
+                                IInlineContentControl contentControl = (InlineContentControl) paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
+
+                                // Set the content inside the content control
+                                WTextRange textRange = new WTextRange(document);
+                                textRange.setText(paragraphInGreenValue);
+                                contentControl.getParagraphItems().add(textRange);
+
+                                //Enables content control lock. // Users can't remove the content control
+                                contentControl.getContentControlProperties().setLockContentControl(true);
+                                //Protects the contents of content control. // Users can edit contents
+                                contentControl.getContentControlProperties().setLockContents(false);
+                            }
+
                         }
-
+                        // Referring
+//                    if (paragraph.getText().contains("Text entry area with Green background:")) {
+//                        //cell.getCellFormat().setBackColor(ColorSupport.getGreen());
+//                        ColorSupport backColor = cell.getCellFormat().getBackColor();
+//                        System.out.println("Color: "+backColor);
+//                    }
+                        //}
                     }
-                    // Referring
-                    if (paragraph.getText().contains("Text entry area with Green background:")) {
-                        //cell.getCellFormat().setBackColor(ColorSupport.getGreen());
-                        ColorSupport backColor = cell.getCellFormat().getBackColor();
-                        System.out.println("Color: "+backColor);
+                }
+
+
+            }
+
+            // Iterate through the paragraphs of the section
+            for (Object paraObj : section.getBody().getChildEntities()) {
+                if (paraObj instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) paraObj;
+
+                    // Check if the paragraph has a green background
+                    if (Objects.equals(paragraph.getParagraphFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))) {
+
+                        // Get the text inside the paragraph
+                        String paragraphValue = paragraph.getText();
+
+                        // Clear existing text to replace with an editable content control
+                        paragraph.setText("");
+
+                        // Create an inline content control (editable field)
+                        IInlineContentControl contentControl = (InlineContentControl) paragraph.appendInlineContentControl(ContentControlType.Text);
+
+                        // Set the content inside the content control
+                        WTextRange textRange = new WTextRange(document);
+                        textRange.setText(paragraphValue);
+                        contentControl.getParagraphItems().add(textRange);
+
+                        //Enables content control lock. // Users can't remove the content control
+                        contentControl.getContentControlProperties().setLockContentControl(true);
+                        //Protects the contents of content control. // Users can edit contents
+                        contentControl.getContentControlProperties().setLockContents(false);
                     }
                 }
             }
+
         }
+
+//        WSection section = document.getSections().get(0);
+//        WTable table = section.getTables().get(2);
+
+
 
         //Set the protection to allow to modify the form fields type
         document.protect(ProtectionType.AllowOnlyFormFields);
@@ -407,6 +445,7 @@ public class DocumentServiceImpl implements DocumentService{
         document.save(outputFilePath);
         document.close();
     }
+
 
 //    private boolean isGreenBackground(ColorSupport highlightColor) {
 //        // Implement the method to compare the color

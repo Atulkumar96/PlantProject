@@ -6,6 +6,7 @@ import com.syncfusion.docio.*;
 import com.syncfusion.docio.FormFieldType;
 //import com.syncfusion.javahelper.drawing.Color;
 import com.syncfusion.javahelper.system.drawing.ColorSupport;
+import com.syncfusion.javahelper.system.io.FileStreamSupport;
 import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.springframework.core.io.ClassPathResource;
@@ -18,7 +19,9 @@ import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.awt.Color;
 
@@ -104,6 +107,8 @@ public class DocumentServiceImpl implements DocumentService{
             String initials = format.getUserInitials(); // Fetch Author initials
             LocalDateTime commentDateTime =  format.getDateTime(); // Fetch comment date and time
 
+
+
             //- Extract comment text
             String commentText = extractTextFromWTextBody(comment.getTextBody());
 
@@ -113,7 +118,6 @@ public class DocumentServiceImpl implements DocumentService{
             String parentInfo = (parentComment != null)
                     ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
                     : "";
-
 
             // Add extracted comment to the list
             commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
@@ -171,173 +175,11 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     /**
-    public String protectDocumentEnableSpecificSection(MultipartFile file) throws Exception {
-        try (InputStream inputStream = file.getInputStream();
-             WordDocument document = new WordDocument(inputStream, FormatType.Docx)) {
-
-            // Apply document-wide read-only protection
-            document.protect(ProtectionType.AllowOnlyReading);
-
-            for (Object obj : document.getSections()) {
-                if (obj instanceof WSection section) {
-                    boolean isEditable = false;
-
-                    for (Object child : section.getBody().getChildEntities()) {
-                        if (child instanceof WParagraph paragraph) {
-                            ColorSupport backgroundColor = paragraph.getParagraphFormat().getBackColor();
-                            String hexColor = (backgroundColor != null) ? backgroundColor.toString() : "";
-
-                            if ("#00FF00".equalsIgnoreCase(hexColor)) {
-                                isEditable = true;
-                                break; // If any paragraph has a green background, make the section editable
-                            }
-                        }
-                    }
-
-                    if (isEditable) {
-                        addEditableContentControl(section);
-                    }
-                }
-            }
-
-            // Convert document to SFDT format
-            String sfdtContent;
-            try {
-                sfdtContent = WordProcessorHelper.load(document);
-            } catch (InvocationTargetException e) {
-                Throwable cause = e.getCause();
-                throw new Exception("Error loading document: " + (cause != null ? cause.getMessage() : e.getMessage()), e);
-            }
-
-            return sfdtContent;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "{\"sections\":[{\"blocks\":[{\"inlines\":[{\"text\":\"" + e.getMessage() + "\"}]}]}]}";
-        }
-    }
-
-    private void addEditableContentControl(WSection section) throws Exception {
-        // Create a block-level content control for the section body
-        BlockContentControl contentControl = new BlockContentControl(section.getDocument(), ContentControlType.RichText);
-
-        // Set content control properties
-        contentControl.getContentControlProperties().setAppearance(ContentControlAppearance.Tags);
-        contentControl.getContentControlProperties().setTag("Editable Section");
-        contentControl.getContentControlProperties().setTitle("Editable Content");
-
-        // Unlock the content inside this section
-        contentControl.getContentControlProperties().setLockContentControl(true); // Prevent deletion
-        contentControl.getContentControlProperties().setLockContents(false); // Allow editing
-
-        // Move all entities from the section body into the content control
-        EntityCollection entities = section.getBody().getChildEntities();
-        while (entities.getCount() > 0) {
-            IEntity entity = entities.get(0);
-            entities.remove(entity);
-            contentControl.getChildEntities().add(entity); // Move entity to content control
-        }
-
-        // Add the editable content control back to the section body
-        section.getBody().getChildEntities().add(contentControl);
-    }
-    */
-    /**
-    public void protectDocument() throws Exception {
-        // Load the document from the specified path
-        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
-        WordDocument document = new WordDocument(inputFilePath);
-
-        // Protect the entire document
-        document.protect(ProtectionType.AllowOnlyFormFields, "password");
-
-        // Iterate through each section in the document
-        for (int i = 0; i < document.getSections().getCount(); i++) {
-            WSection section = document.getSections().get(i);
-
-            // Iterate through each paragraph in the section
-            for (int j = 0; j < section.getBody().getChildEntities().getCount(); j++) {
-                Object entity = section.getBody().getChildEntities().get(j);
-
-                // Check if the entity is a paragraph
-                if (entity instanceof WParagraph) {
-                    WParagraph paragraph = (WParagraph) entity;
-
-                    // Iterate through each item in the paragraph
-                    for (int k = 0; k < paragraph.getChildEntities().getCount(); k++) {
-                        Object item = paragraph.getChildEntities().get(k);
-
-                        // Check if the item is a text range
-                        if (item instanceof WTextRange) {
-                            WTextRange textRange = (WTextRange) item;
-
-                            // Check if the background color is green
-                            if (isGreenBackground(textRange.getCharacterFormat().getHighlightColor())) {
-                                // Add a bookmark around the green background text
-                                String bookmarkName = "EditableText" + i + "_" + j + "_" + k;
-                                paragraph.getItems().insert(k, new BookmarkStart(document, bookmarkName));
-                                paragraph.getItems().insert(k + 2, new BookmarkEnd(document, bookmarkName));
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Iterate through tables in the section
-            for (int j = 0; j < section.getTables().getCount(); j++) {
-                WTable table = section.getTables().get(j);
-
-                for (int k = 0; k < table.getRows().getCount(); k++) {
-                    WTableRow row = table.getRows().get(k);
-
-                    for (int l = 0; l < row.getCells().getCount(); l++) {
-                        WTableCell cell = row.getCells().get(l);
-
-                        // Iterate through each paragraph in the table cell
-                        for (int m = 0; m < cell.getChildEntities().getCount(); m++) {
-                            Object entity = cell.getChildEntities().get(m);
-
-                            // Check if the entity is a paragraph
-                            if (entity instanceof WParagraph) {
-                                WParagraph paragraph = (WParagraph) entity;
-
-                                // Iterate through each item in the paragraph
-                                for (int n = 0; n < paragraph.getChildEntities().getCount(); n++) {
-                                    Object item = paragraph.getChildEntities().get(n);
-
-                                    // Check if the item is a text range
-                                    if (item instanceof WTextRange) {
-                                        WTextRange textRange = (WTextRange) item;
-
-                                        // Check if the background color is green
-                                        if (isGreenBackground(textRange.getCharacterFormat().getHighlightColor())) {
-                                            // Add a bookmark around the green background text
-                                            String bookmarkName = "EditableText" + i + "_" + j + "_" + k + "_" + l + "_" + m;
-                                            paragraph.getItems().insert(n, new BookmarkStart(document, bookmarkName));
-                                            paragraph.getItems().insert(n + 2, new BookmarkEnd(document, bookmarkName));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Save the document to the specified path
-        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocument.docx";
-        document.save(outputFilePath);
-        document.close();
-    }
-
-    private static boolean isGreenBackground(Object highlightColor) {
-        // Implement the method to compare the color
-        // Assuming that getHighlightColor() returns a ColorSupport object
-        ColorSupport green = ColorSupport.getGreen();
-        return highlightColor.equals(green);
-    }
-    */
-
+     * Protects the document and makes the content with only green background editable
+     * @param
+     * @return JSON formatted String of the extracted comments
+     * @throws Exception
+     */
     public void protectDocument() throws Exception {
         // Load the document from the specified path
         String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
@@ -347,63 +189,60 @@ public class DocumentServiceImpl implements DocumentService{
         for (Object sectionObj : document.getSections()) {
             WSection section = (WSection) sectionObj;
 
-            // Iterate through the Tables in the section
-            for (Object tableObj : section.getTables()) {
-                WTable table = (WTable) tableObj;
+            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
+            for (Object entity : section.getBody().getChildEntities()) {
+                if (entity instanceof WTable){
+                    WTable table = (WTable) entity;
 
-                //Iterate the rows of the table. table -> rows -> cells -> paragraphs
-                for (Object row_tempObj : table.getRows()) {
-                    WTableRow row = (WTableRow) row_tempObj;
+                    //Iterate the rows of the table. table -> rows -> cells -> paragraphs
+                    for (Object row_tempObj : table.getRows()) {
+                        WTableRow row = (WTableRow) row_tempObj;
 
-                    //Iterate through the cells of rows.
-                    for (Object cell_tempObj : row.getCells()) {
-                        WTableCell cell = (WTableCell) cell_tempObj;
+                        //Iterate through the cells of rows.
+                        for (Object cell_tempObj : row.getCells()) {
+                            WTableCell cell = (WTableCell) cell_tempObj;
 
-                        //If the cell has BackColor as Green then make that cell editable
-                        if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
+                            //If the cell has BackColor as Green then make that cell editable
+                            if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
 
-                            //Iterate through the paragraphs of the cell
-                            for (Object paragraphs : cell.getParagraphs()) {
-                                WParagraph paragraphInGreen = (WParagraph) paragraphs;
+                                //System.out.println("Cell Background Color: " + cell.getCellFormat().getBackColor());
+                                //Iterate through the paragraphs of the cell
+                                for (Object paragraphs : cell.getParagraphs()) {
+                                    WParagraph paragraphInGreen = (WParagraph) paragraphs;
 
-                                // Get the text inside the paragraphInGreen
-                                String paragraphInGreenValue = paragraphInGreen.getText();
+                                    // Get the text inside the paragraphInGreen
+                                    String paragraphInGreenValue = paragraphInGreen.getText();
 
-                                // Clear existing text to replace with an editable content control
-                                paragraphInGreen.setText("");
+                                    // Clear existing text to replace with an editable content control
+                                    paragraphInGreen.setText("");
 
-                                // Create an inline content control (editable field)
-                                IInlineContentControl contentControl = (InlineContentControl) paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
+                                    // Create an inline content control (editable field)
+                                    IInlineContentControl contentControl = (InlineContentControl) paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
 
-                                // Set the content inside the content control
-                                WTextRange textRange = new WTextRange(document);
-                                textRange.setText(paragraphInGreenValue);
-                                contentControl.getParagraphItems().add(textRange);
+                                    // Set the content inside the content control
+                                    WTextRange textRange = new WTextRange(document);
+                                    textRange.setText(paragraphInGreenValue);
+                                    contentControl.getParagraphItems().add(textRange);
 
-                                //Enables content control lock. // Users can't remove the content control
-                                contentControl.getContentControlProperties().setLockContentControl(true);
-                                //Protects the contents of content control. // Users can edit contents
-                                contentControl.getContentControlProperties().setLockContents(false);
+                                    //Enables content control lock. // Users can't remove the content control
+                                    contentControl.getContentControlProperties().setLockContentControl(true);
+                                    //Protects the contents of content control. // Users can edit contents
+                                    contentControl.getContentControlProperties().setLockContents(false);
+                                }
+
                             }
-
-                        }
-                        // Referring
+                            // Referring
 //                    if (paragraph.getText().contains("Text entry area with Green background:")) {
 //                        //cell.getCellFormat().setBackColor(ColorSupport.getGreen());
 //                        ColorSupport backColor = cell.getCellFormat().getBackColor();
 //                        System.out.println("Color: "+backColor);
 //                    }
-                        //}
+                            //}
+                        }
                     }
                 }
-
-
-            }
-
-            // Iterate through the paragraphs of the section
-            for (Object paraObj : section.getBody().getChildEntities()) {
-                if (paraObj instanceof WParagraph) {
-                    WParagraph paragraph = (WParagraph) paraObj;
+                else if (entity instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) entity;
 
                     // Check if the paragraph has a green background
                     if (Objects.equals(paragraph.getParagraphFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))) {
@@ -432,27 +271,282 @@ public class DocumentServiceImpl implements DocumentService{
 
         }
 
-//        WSection section = document.getSections().get(0);
-//        WTable table = section.getTables().get(2);
-
-
-
         //Set the protection to allow to modify the form fields type
         document.protect(ProtectionType.AllowOnlyFormFields);
 
         // Save the document to the specified path
-        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocument1.docx";
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocument2.docx";
         document.save(outputFilePath);
         document.close();
     }
 
+    public void insertImage() throws Exception {
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        String inputImagePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\istockphoto.jpg";
 
-//    private boolean isGreenBackground(ColorSupport highlightColor) {
-//        // Implement the method to compare the color
-//        // Assuming that getHighlightColor() returns a ColorSupport object
-//        ColorSupport green = ColorSupport.getGreen();
-//        return highlightColor.equals(green);
-//    }
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Load the image from the specified path
+        FileInputStream imageStream = new FileInputStream(inputImagePath);
+
+        // Iterate through the sections in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
+
+            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
+            for (Object entity : section.getBody().getChildEntities()) {
+                if (entity instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) entity;
+
+                    // if the paragraph contains the text "Subject Matter Experts" then insert the image at the end of the paragraph
+                    if (paragraph.getText().contains("Subject Matter Experts")) {
+
+                        IWTextRange textRange = paragraph.appendText("\n");
+
+                        // Append the image to the paragraph
+                        IWPicture picture = paragraph.appendPicture(imageStream);
+                        picture.setHeight(150);  // Set the height of the image
+                        picture.setWidth(160);  // Set the width of the image
+                    }
+
+                }
+            }
+
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertImageDoc.docx";
+        document.save(outputFilePath);
+
+        // Close all streams and the document
+        imageStream.close();
+        document.close();
+    }
+
+    public void insertOle() throws Exception {
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        String inputPdfPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testPdf.pdf";
+        String inputExcelPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testExcel.xlsx";
+        String inputDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
+
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Load the file to be embedded (e.g., a PDF file)
+        InputStream oleFileStreamPdf = new FileInputStream(inputPdfPath);
+        InputStream oleFileStreamExcel = new FileInputStream(inputExcelPath);
+        InputStream oleFileStreamDoc = new FileInputStream(inputDocPath);
+
+        // Load the display image for the PDF
+        InputStream pdfimageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\pdf-icon.png");
+        WPicture pdfPicture = new WPicture(document);
+        pdfPicture.loadImage(pdfimageStream);
+
+        // Set icon size (e.g., 50 x 50)
+        pdfPicture.setHeight(50);
+        pdfPicture.setWidth(50);
+
+        // Load the display image for the Excel
+        InputStream excelImageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\excel-icon.png");
+        WPicture excelPicture = new WPicture(document);
+        excelPicture.loadImage(excelImageStream);
+
+        // Set icon size (e.g., 50 x 50)
+        excelPicture.setHeight(50);
+        excelPicture.setWidth(50);
+
+        // Load the display image for the Doc
+        InputStream docImageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\doc-icon.png");
+        WPicture docPicture = new WPicture(document);
+        docPicture.loadImage(docImageStream);
+
+        // Set icon size (e.g., 50 x 50)
+        docPicture.setHeight(50);
+        docPicture.setWidth(50);
+
+        // Iterate through the sections in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
+
+            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
+            for (Object entity : section.getBody().getChildEntities()) {
+                if (entity instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) entity;
+
+                    // if the paragraph contains the text like regex "Subject Matter Experts" then insert the image at the end of the paragraph
+                    if (paragraph.getText().contains("Subject Matter Experts")) {
+
+                        IWTextRange textRange = paragraph.appendText("\n"); // Append a new line
+
+                        // Append the excel file to the paragraph
+                        WOleObject oleObjectExcel = paragraph.appendOleObject(oleFileStreamExcel, excelPicture, OleObjectType.ExcelWorksheet);
+
+                        paragraph.appendText("\n"); // Append a new line
+
+                        // Append the Word document to the paragraph
+                        WOleObject oleObjectDoc = paragraph.appendOleObject(oleFileStreamDoc, docPicture, OleObjectType.WordDocument);
+
+                        paragraph.appendText("\n"); // Append a new line
+
+                        // Append the PDF file to the paragraph
+                        WOleObject oleObjectPdf = paragraph.appendOleObject(oleFileStreamPdf, pdfPicture, OleObjectType.AdobeAcrobatDocument);
+
+                        //oleObject.setProgId("AcroExch.Document");
+                        // Set display properties for the OLE object
+                        oleObjectExcel.setDisplayAsIcon(true);
+                        oleObjectDoc.setDisplayAsIcon(true);
+                        oleObjectPdf.setDisplayAsIcon(true);
+                    }
+
+                }
+            }
+
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertObjectDoc.docx";
+        document.save(outputFilePath);
+
+        // Close all streams and the document
+        oleFileStreamExcel.close();
+        oleFileStreamDoc.close();
+        oleFileStreamPdf.close();
+
+        pdfimageStream.close();
+        docImageStream.close();
+        excelImageStream.close();
+
+        document.close();
+    }
+
+    public void insertLink() throws Exception {
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Iterate through the sections in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
+
+            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
+            for (Object entity : section.getBody().getChildEntities()) {
+                if (entity instanceof WParagraph) {
+                    WParagraph paragraph = (WParagraph) entity;
+
+                    // if the paragraph contains the text "Subject Matter Experts" then insert the image at the end of the paragraph
+                    if (paragraph.getText().contains("Subject Matter Experts")) {
+
+                        IWTextRange textRange = paragraph.appendText("\n");
+
+                        // Append the link to the paragraph
+                        paragraph.appendHyperlink("https://www.google.com/", "Google", HyperlinkType.WebLink);
+                    }
+
+                }
+            }
+
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertLink.docx";
+        document.save(outputFilePath);
+
+        document.close();
+    }
+
+    /**
+     * Appends a signature to the last paragraph of the document
+     * @param approverName
+     * @throws Exception
+     */
+    public void appendSignature(String approverName) throws Exception{
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Format the current date to MM/dd/yyyy
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        String formattedDate = LocalDate.now().format(formatter);
+
+        // Iterate through each section in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
+
+            // Get the last paragraph in the section
+            IWParagraph lastParagraph = section.getBody().getLastParagraph();
+
+            // Ensure there's a valid paragraph before the footer
+            if (lastParagraph != null) {
+                // Create signature text
+                String signatureText = "Approved by: " + approverName + "\nSigned Date: " +
+                        formattedDate;
+
+                // Append the text to the last paragraph
+                IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
+                textRange.getCharacterFormat().setBold(true);  // Make it bold
+                textRange.getCharacterFormat().setFontSize(12);  // Set font size
+            }
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\AppendedSignatureAtLastPara.docx";
+        document.save(outputFilePath);
+        document.close();
+    }
+
+    /**
+     * Append a signature by iterating through each child entity in the doc -> getting the last paragraph
+     * @param approverName
+     * @throws Exception
+     */
+    public void appendSignatureAtLast(String approverName) throws Exception{
+        // Load the document from the specified path
+        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+        WordDocument document = new WordDocument(inputFilePath);
+
+        // Format the current date to MM/dd/yyyy
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        String formattedDate = LocalDate.now().format(formatter);
+
+        // Iterate through each section in the document
+        for (Object sectionObj : document.getSections()) {
+            WSection section = (WSection) sectionObj;
+
+            // Get the child entities of the section
+            List<Entity> childEntities = new ArrayList<>();
+            for (Object obj : section.getBody().getChildEntities()) {
+                childEntities.add((Entity) obj);
+            }
+
+            WParagraph lastParagraph = null;
+
+            // Find the last non-footer paragraph
+            for (Entity entity : childEntities) {
+                if (entity instanceof WParagraph) {
+                    lastParagraph = (WParagraph) entity;  // Keep track of the last paragraph
+                }
+            }
+
+            // Ensure there's a valid paragraph before the footer
+            if (lastParagraph != null) {
+                // Create signature text
+                String signatureText = "Approved by: " + approverName + "\nSigned Date: " +
+                        formattedDate;
+
+                // Append the text to the last paragraph
+                IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
+                textRange.getCharacterFormat().setBold(true);  // Make it bold
+                textRange.getCharacterFormat().setFontSize(12);  // Set font size
+            }
+        }
+
+        // Save the document to the specified path
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\AppendedSignature.docx";
+        document.save(outputFilePath);
+        document.close();
+    }
 
     // mailMerge helper method: to fetch plant details based on the plant name
     @Override

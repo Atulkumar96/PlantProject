@@ -21,13 +21,40 @@ import java.util.List;
 @SpringBootApplication
 public class InlineDocumentMgmtServiceApplication {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         SpringApplication.run(InlineDocumentMgmtServiceApplication.class, args);
 
         // Registered Syncfusion license
         SyncfusionLicenseProvider.registerLicense("GTIlMmhha31ifWBgaGBifGJhfGpqampzYWBpZmppZmpoMicmPxMwPzIhOicqICogJzY+IDo9MH0wPD4=");
 
-        //1. Test extractReviewComments method
+        // Test the methods in DocumentServiceImpl
+
+        //1. Test insertLink() method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            documentService.insertLink();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //1. Test insertImage() method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            documentService.insertImage();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //2. Test insertOle() method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            documentService.insertOle();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+        //3. Test extractReviewComments method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl();
             //C:\Users\Lenovo\Desktop\Inline Document Service\Test
@@ -39,10 +66,19 @@ public class InlineDocumentMgmtServiceApplication {
             e.printStackTrace();
         }
 
-        //2. Test protectDocument method
+        //4. Test protectDocument method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl();
             documentService.protectDocument();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //5. Test the appendSignature method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl();
+            documentService.appendSignature("Atul");
+            documentService.appendSignatureAtLast("Atul");
         } catch (Exception e) {
             e.printStackTrace();
         }

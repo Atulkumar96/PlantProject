@@ -162,7 +162,7 @@ public class DocumentController {
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("Save")
-    public void save(@RequestBody SaveDto data) throws Exception {
+    public void saveFile(@RequestBody SaveDto data) throws Exception {
         try {
             String name = data.getFileName();
             String format = retrieveFileType(name);

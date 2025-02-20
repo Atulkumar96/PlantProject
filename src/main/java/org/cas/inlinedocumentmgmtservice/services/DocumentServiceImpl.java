@@ -134,44 +134,55 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     // TODO: Test this overloaded extractReviewComments method, if required from Frontend Word Editor or any other client
-    public List<CommentDto> extractReviewComments(MultipartFile file) throws Exception {
+    /**
+     * Extracts review comments from the Word document
+     * @param file MultipartFile input stream
+     * @return JSON formatted String of the extracted comments
+     * @throws Exception
+     */
+    public String extractReviewComments(MultipartFile file) throws Exception {
         // Load the Word document from the MultipartFile input stream
-        InputStream inputStream = file.getInputStream();
-        WordDocument document = new WordDocument(inputStream, FormatType.Docx);
+        try(InputStream inputStream = file.getInputStream();
+            WordDocument document = new WordDocument(inputStream, FormatType.Docx)){
 
-        // List to store extracted comments
-        List<CommentDto> commentsList = new ArrayList<>();
+            // List to store extracted comments
+            List<CommentDto> commentsList = new ArrayList<>();
 
-        // Iterate through all comments in the document
-        for (Object obj : document.getComments()) {
-            WComment comment = (WComment) obj;
+            // Iterate through all comments in the document
+            for (Object obj : document.getComments()) {
+                    WComment comment = (WComment) obj;
 
-            // Fetch comment author, initials, and text
-            WCommentFormat format = comment.getFormat();
-            String author = format.getUser(); // Fetch Author
-            String initials = format.getUserInitials(); // Fetch Author initials
+                    // Fetch comment author, initials, and text
+                    WCommentFormat format = comment.getFormat();
+                    String author = format.getUser(); // Fetch Author
+                    String initials = format.getUserInitials(); // Fetch Author initials
 
-            // Fetch comment date and time
-            LocalDateTime commentDateTime = format.getDateTime();
+                    // Fetch comment date and time
+                    LocalDateTime commentDateTime = format.getDateTime();
 
-            // Extract comment text
-            String commentText = extractTextFromWTextBody(comment.getTextBody());
+                    // Extract comment text
+                    String commentText = extractTextFromWTextBody(comment.getTextBody());
 
-            // Handle reply comments by checking their ancestor (parent comment)
-            WComment parentComment = (WComment) comment.getAncestor();
-            String parentInfo = (parentComment != null)
-                    ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
-                    : "";
+                    // Handle reply comments by checking their ancestor (parent comment)
+                    WComment parentComment = (WComment) comment.getAncestor();
+                    String parentInfo = (parentComment != null)
+                            ? " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")"
+                            : "";
 
-            // Add extracted comment to the list
-            commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
+                    // Add extracted comment to the list
+                    commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
+            }
+
+            // Close the document and return the comments list
+            document.close();
+            inputStream.close();
+
+            // Return the comments list as a JSON
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.registerModule(new JavaTimeModule()); // Enable LocalDateTime support
+            return objectMapper.writeValueAsString(commentsList);
         }
-
-        // Close the document and return the comments list
-        document.close();
-        inputStream.close();
-
-        return commentsList;
+        //return commentsList;
     }
 
     /**
@@ -194,6 +205,8 @@ public class DocumentServiceImpl implements DocumentService{
                 if (entity instanceof WTable){
                     WTable table = (WTable) entity;
 
+                    boolean hasGreenRow = false; // Flag to check if table contains a green-background row
+
                     //Iterate the rows of the table. table -> rows -> cells -> paragraphs
                     for (Object row_tempObj : table.getRows()) {
                         WTableRow row = (WTableRow) row_tempObj;
@@ -204,6 +217,7 @@ public class DocumentServiceImpl implements DocumentService{
 
                             //If the cell has BackColor as Green then make that cell editable
                             if (Objects.equals(cell.getCellFormat().getBackColor(), ColorSupport.fromArgb(-1,-51,-1,-51))){
+                                hasGreenRow = true; // Mark that this table has editable cells
 
                                 //System.out.println("Cell Background Color: " + cell.getCellFormat().getBackColor());
                                 //Iterate through the paragraphs of the cell
@@ -225,21 +239,21 @@ public class DocumentServiceImpl implements DocumentService{
                                     contentControl.getParagraphItems().add(textRange);
 
                                     //Enables content control lock. // Users can't remove the content control
-                                    contentControl.getContentControlProperties().setLockContentControl(true);
+                                    contentControl.getContentControlProperties().setLockContentControl(false);
                                     //Protects the contents of content control. // Users can edit contents
                                     contentControl.getContentControlProperties().setLockContents(false);
                                 }
-
                             }
-                            // Referring
-//                    if (paragraph.getText().contains("Text entry area with Green background:")) {
-//                        //cell.getCellFormat().setBackColor(ColorSupport.getGreen());
-//                        ColorSupport backColor = cell.getCellFormat().getBackColor();
-//                        System.out.println("Color: "+backColor);
-//                    }
-                            //}
                         }
                     }
+
+                    // If the table has at least one green-background row, programmatically add an empty editable row at the end
+                    /** workaround to add an editable row at the end of the table
+                    if (hasGreenRow) {
+                        addEditableRowToTable(document, table);
+                    }
+                    */
+
                 }
                 else if (entity instanceof WParagraph) {
                     WParagraph paragraph = (WParagraph) entity;
@@ -262,7 +276,7 @@ public class DocumentServiceImpl implements DocumentService{
                         contentControl.getParagraphItems().add(textRange);
 
                         //Enables content control lock. // Users can't remove the content control
-                        contentControl.getContentControlProperties().setLockContentControl(true);
+                        contentControl.getContentControlProperties().setLockContentControl(false);
                         //Protects the contents of content control. // Users can edit contents
                         contentControl.getContentControlProperties().setLockContents(false);
                     }
@@ -271,7 +285,7 @@ public class DocumentServiceImpl implements DocumentService{
 
         }
 
-        //Set the protection to allow to modify the form fields type
+        //Set the protection to allow to modify the form fields type and inline content controls (field for editable green backcolor rows)
         document.protect(ProtectionType.AllowOnlyFormFields);
 
         // Save the document to the specified path
@@ -279,6 +293,59 @@ public class DocumentServiceImpl implements DocumentService{
         document.save(outputFilePath);
         document.close();
     }
+
+    /**
+     * Adds a new editable row to the specified table.
+     * It temporarily removes document protection, adds the row, and then re-applies protection.
+     *
+     * @param document the WordDocument instance
+     * @param table the WTable where the new row will be added
+     */
+    private void addEditableRowToTable(WordDocument document, WTable table) throws Exception {
+        // Remove protection temporarily to allow adding a new row
+        document.protect(ProtectionType.NoProtection);
+
+        // Create a new row using the document instance
+        WTableRow newRow = new WTableRow(document);
+
+        // Use the first row as a template for cell structure (assuming table has at least one row)
+        if (table.getRows() != null) {
+            WTableRow templateRow = (WTableRow) table.getRows().get(1);
+
+            // Iterate through the cells of the template row
+            for (Object cellObj : templateRow.getCells()) {
+                WTableCell newCell = new WTableCell(document);
+                // Set the cell's background to the green color used for editable cells
+                newCell.getCellFormat().setBackColor(ColorSupport.fromArgb(-1, -51, -1, -51));
+
+                // Create a new paragraph in the cell
+                WParagraph newParagraph = new WParagraph(document);
+                // Append an inline content control to the paragraph (editable field)
+                IInlineContentControl newContentControl = (InlineContentControl) newParagraph.appendInlineContentControl(ContentControlType.Text);
+
+                // Create an empty text range for the content control
+                WTextRange newTextRange = new WTextRange(document);
+                newTextRange.setText("");  // Empty text for user input
+                newContentControl.getParagraphItems().add(newTextRange);
+
+                // Configure content control properties: lock control but allow content editing
+                newContentControl.getContentControlProperties().setLockContentControl(true);
+                newContentControl.getContentControlProperties().setLockContents(false);
+
+                // Add the paragraph with the content control to the new cell
+                newCell.getParagraphs().add(newParagraph);
+                // Add the new cell to the new row
+                newRow.getCells().add(newCell);
+            }
+
+            // Add the new row to the table
+            table.getRows().add(newRow);
+        }
+
+        // Re-apply document protection to allow modifications only in form fields
+        document.protect(ProtectionType.AllowOnlyFormFields);
+    }
+
 
     public void insertImage() throws Exception {
         // Load the document from the specified path

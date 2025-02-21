@@ -179,6 +179,13 @@ public class DocumentController {
         }
     }
 
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("/appendSignature")
+    public String appendSignature(@RequestParam("files") MultipartFile file,
+                                  @RequestParam("approverName") String approverName){
+        return documentServiceImpl.appendSignature(file, approverName);
+    }
+
     /**
     @PostMapping(value = "/protectDocument", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> protectDocumentSections(@RequestParam("file") MultipartFile file) {

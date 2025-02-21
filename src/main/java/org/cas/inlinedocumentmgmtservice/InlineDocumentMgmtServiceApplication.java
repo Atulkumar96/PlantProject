@@ -40,7 +40,9 @@ public class InlineDocumentMgmtServiceApplication {
         //1. Test insertImage() method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl();
-            documentService.insertImage();
+            documentService.insertImage("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx",
+                    "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\istockphoto.jpg",
+                    "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertImageDoc.docx");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -69,7 +71,8 @@ public class InlineDocumentMgmtServiceApplication {
         //4. Test protectDocument method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl();
-            documentService.protectDocument();
+            documentService.protectDocument("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\RSAW BAL-001-2_2016_v1.docx",
+                    "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\ProtectedDocumentWithGreenEditable.docx");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -77,8 +80,11 @@ public class InlineDocumentMgmtServiceApplication {
         //5. Test the appendSignature method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl();
-            documentService.appendSignature("Atul");
-            documentService.appendSignatureAtLast("Atul");
+            documentService.appendSignature("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\RSAW BAL-001-2_2016_v1.docx",
+                     "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\SignedDocumentTest.docx",
+                    "Atul");
+
+            //documentService.appendSignatureAtLast("Atul");
         } catch (Exception e) {
             e.printStackTrace();
         }

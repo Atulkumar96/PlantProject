@@ -9,6 +9,7 @@ import com.syncfusion.docio.FormFieldType;
 //import com.syncfusion.javahelper.drawing.Color;
 import com.syncfusion.javahelper.system.drawing.ColorSupport;
 import com.syncfusion.javahelper.system.io.FileStreamSupport;
+import org.apache.commons.io.IOUtils;
 import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.cas.inlinedocumentmgmtservice.exceptions.DocumentProcessingException;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +37,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class DocumentServiceImpl implements DocumentService{
@@ -693,100 +698,81 @@ public class DocumentServiceImpl implements DocumentService{
         return "{\"sections\":[{\"blocks\":[{\"inlines\":[{\"text\":\"" + message + "\"}]}]}]}";
     }
 
-    public void insertOle() throws Exception {
-        // Load the document from the specified path
+    public void insertOle() {
+        // Hard-coded file paths for the documents to embed; these might still be externalized.
         String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
-        String inputPdfPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testPdf.pdf";
-        String inputExcelPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testExcel.xlsx";
-        String inputDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
 
-        WordDocument document = new WordDocument(inputFilePath);
+        String inputEmbeddingPdfPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testPdf.pdf";
+        String inputEmbeddingExcelPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testExcel.xlsx";
+        String inputEmbeddingDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
 
-        // Load the file to be embedded (e.g., a PDF file)
-        InputStream oleFileStreamPdf = new FileInputStream(inputPdfPath);
-        InputStream oleFileStreamExcel = new FileInputStream(inputExcelPath);
-        InputStream oleFileStreamDoc = new FileInputStream(inputDocPath);
+        // Use classpath resources for icons.
+        // Make sure these files are located at src/main/resources/icons/
+        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertObjectDoc.docx";
 
-        // Load the display image for the PDF
-        InputStream pdfimageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\pdf-icon.png");
-        WPicture pdfPicture = new WPicture(document);
-        pdfPicture.loadImage(pdfimageStream);
+        try (WordDocument document = new WordDocument(inputFilePath)) {
+            // Open streams for OLE files
+            try (InputStream oleFileStreamPdf = new FileInputStream(inputEmbeddingPdfPath);
+                 InputStream oleFileStreamExcel = new FileInputStream(inputEmbeddingExcelPath);
+                 InputStream oleFileStreamDoc = new FileInputStream(inputEmbeddingDocPath);
+                 InputStream pdfImageStream = getClass().getResourceAsStream("/icons/pdf-icon.png");
+                 InputStream excelImageStream = getClass().getResourceAsStream("/icons/excel-icon.png");
+                 InputStream docImageStream = getClass().getResourceAsStream("/icons/doc-icon.png")) {
 
-        // Set icon size (e.g., 50 x 50)
-        pdfPicture.setHeight(50);
-        pdfPicture.setWidth(50);
+                if (pdfImageStream == null || excelImageStream == null || docImageStream == null) {
+                    throw new RuntimeException("Icon resources not found in classpath under /icons folder.");
+                }
 
-        // Load the display image for the Excel
-        InputStream excelImageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\excel-icon.png");
-        WPicture excelPicture = new WPicture(document);
-        excelPicture.loadImage(excelImageStream);
+                // Create and configure the display image for PDF OLE object
+                WPicture pdfPicture = new WPicture(document);
+                pdfPicture.loadImage(pdfImageStream);
+                pdfPicture.setHeight(50);
+                pdfPicture.setWidth(50);
 
-        // Set icon size (e.g., 50 x 50)
-        excelPicture.setHeight(50);
-        excelPicture.setWidth(50);
+                // Create and configure the display image for Excel OLE object
+                WPicture excelPicture = new WPicture(document);
+                excelPicture.loadImage(excelImageStream);
+                excelPicture.setHeight(50);
+                excelPicture.setWidth(50);
 
-        // Load the display image for the Doc
-        InputStream docImageStream = new FileInputStream("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\doc-icon.png");
-        WPicture docPicture = new WPicture(document);
-        docPicture.loadImage(docImageStream);
+                // Create and configure the display image for Word (Doc) OLE object
+                WPicture docPicture = new WPicture(document);
+                docPicture.loadImage(docImageStream);
+                docPicture.setHeight(50);
+                docPicture.setWidth(50);
 
-        // Set icon size (e.g., 50 x 50)
-        docPicture.setHeight(50);
-        docPicture.setWidth(50);
+                // Iterate through sections and child entities
+                for (Object sectionObj : document.getSections()) {
+                    WSection section = (WSection) sectionObj;
+                    for (Object entity : section.getBody().getChildEntities()) {
+                        if (entity instanceof WParagraph) {
+                            WParagraph paragraph = (WParagraph) entity;
+                            if (paragraph.getText().contains("Subject Matter Experts")) {
+                                paragraph.appendText("\n"); // New line
 
-        // Iterate through the sections in the document
-        for (Object sectionObj : document.getSections()) {
-            WSection section = (WSection) sectionObj;
+                                WOleObject oleObjectExcel = paragraph.appendOleObject(oleFileStreamExcel, excelPicture, OleObjectType.ExcelWorksheet);
+                                paragraph.appendText("\n");
 
-            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
-            for (Object entity : section.getBody().getChildEntities()) {
-                if (entity instanceof WParagraph) {
-                    WParagraph paragraph = (WParagraph) entity;
+                                WOleObject oleObjectDoc = paragraph.appendOleObject(oleFileStreamDoc, docPicture, OleObjectType.WordDocument);
+                                paragraph.appendText("\n");
 
-                    // if the paragraph contains the text like regex "Subject Matter Experts" then insert the image at the end of the paragraph
-                    if (paragraph.getText().contains("Subject Matter Experts")) {
+                                WOleObject oleObjectPdf = paragraph.appendOleObject(oleFileStreamPdf, pdfPicture, OleObjectType.AdobeAcrobatDocument);
 
-                        IWTextRange textRange = paragraph.appendText("\n"); // Append a new line
-
-                        // Append the excel file to the paragraph
-                        WOleObject oleObjectExcel = paragraph.appendOleObject(oleFileStreamExcel, excelPicture, OleObjectType.ExcelWorksheet);
-
-                        paragraph.appendText("\n"); // Append a new line
-
-                        // Append the Word document to the paragraph
-                        WOleObject oleObjectDoc = paragraph.appendOleObject(oleFileStreamDoc, docPicture, OleObjectType.WordDocument);
-
-                        paragraph.appendText("\n"); // Append a new line
-
-                        // Append the PDF file to the paragraph
-                        WOleObject oleObjectPdf = paragraph.appendOleObject(oleFileStreamPdf, pdfPicture, OleObjectType.AdobeAcrobatDocument);
-
-                        //oleObject.setProgId("AcroExch.Document");
-                        // Set display properties for the OLE object
-                        oleObjectExcel.setDisplayAsIcon(true);
-                        oleObjectDoc.setDisplayAsIcon(true);
-                        oleObjectPdf.setDisplayAsIcon(true);
+                                oleObjectExcel.setDisplayAsIcon(true);
+                                oleObjectDoc.setDisplayAsIcon(true);
+                                oleObjectPdf.setDisplayAsIcon(true);
+                            }
+                        }
                     }
-
                 }
             }
-
+            // Save the modified document
+            document.save(outputFilePath);
+            LOGGER.info("Document with embedded OLE objects saved at: " + outputFilePath);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error inserting OLE objects into document", e);
+            throw new DocumentProcessingException("Error inserting OLE objects into document", e);
         }
-
-        // Save the document to the specified path
-        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertObjectDoc.docx";
-        document.save(outputFilePath);
-
-        // Close all streams and the document
-        oleFileStreamExcel.close();
-        oleFileStreamDoc.close();
-        oleFileStreamPdf.close();
-
-        pdfimageStream.close();
-        docImageStream.close();
-        excelImageStream.close();
-
-        document.close();
     }
 
     public void insertLink() throws Exception {
@@ -879,6 +865,7 @@ public class DocumentServiceImpl implements DocumentService{
         }
     }
 
+    // TODO: Test this overloaded appendSignature method, from Frontend Word Editor or any other client
     /**
      * Appends a signature to the last paragraph of the provided Word document.
      * The signature includes the approver's name and the current date.
@@ -890,48 +877,44 @@ public class DocumentServiceImpl implements DocumentService{
      * @throws DocumentProcessingException if processing fails
      */
     public String appendSignature(MultipartFile inputFile, String approverName) {
-        try {
-            // Validate input parameters
-            validateInputs(approverName, inputFile);
+        validateInputs(approverName, inputFile);
 
-            // Format the current date to MM/dd/yyyy
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-            String formattedDate = LocalDate.now().format(formatter);
+        // Format the current date to MM/dd/yyyy
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        String formattedDate = LocalDate.now().format(formatter);
 
-            // Open the document from the MultipartFile InputStream
-            try (WordDocument document = new WordDocument(inputFile.getInputStream())) {
-                boolean signatureAdded = false;
+        // Instead of passing inputFile.getInputStream() directly,
+        // sanitize the DOCX by rebuilding it with sanitized XML entries.
+        try (InputStream sanitizedInput = sanitizeDocxInputStream(inputFile.getInputStream());
+             WordDocument document = new WordDocument(sanitizedInput)) {
+            boolean signatureAdded = false;
 
-                // Iterate through each section in the document
-                for (Object sectionObj : document.getSections()) {
-                    WSection section = (WSection) sectionObj;
-                    IWParagraph lastParagraph = section.getBody().getLastParagraph();
+            // Iterate through each section in the document
+            for (Object sectionObj : document.getSections()) {
+                WSection section = (WSection) sectionObj;
+                IWParagraph lastParagraph = section.getBody().getLastParagraph();
 
-                    if (lastParagraph != null) {
-                        String signatureText = "Approved by: " + approverName + "\nSigned Date: " + formattedDate;
-                        IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
-                        textRange.getCharacterFormat().setBold(true);
-                        textRange.getCharacterFormat().setFontSize(12);
-                        signatureAdded = true;
-                    }
+                if (lastParagraph != null) {
+                    String signatureText = "Approved by: " + approverName + "\nSigned Date: " + formattedDate;
+                    IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
+                    textRange.getCharacterFormat().setBold(true);
+                    textRange.getCharacterFormat().setFontSize(12);
+                    signatureAdded = true;
                 }
-
-                if (!signatureAdded) {
-                    throw new DocumentProcessingException("No valid paragraph found to append the signature.");
-                }
-
-                // Convert the modified document to an SFDT string using the candidate method.
-                return WordProcessorHelper.load(document, true);
-            } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Error processing document", e);
-                throw new DocumentProcessingException("Failed to process the document.", e);
             }
-        } catch (DocumentProcessingException e) {
-            throw e; // Handled by the GlobalExceptionHandler
+
+            if (!signatureAdded) {
+                throw new DocumentProcessingException("No valid paragraph found to append the signature.");
+            }
+
+            // Convert the modified document to an SFDT string
+            return WordProcessorHelper.load(document, true);
         } catch (Exception e) {
-            throw new DocumentProcessingException("Unexpected error while processing the document.", e);
+            LOGGER.log(Level.SEVERE, "Error processing document", e);
+            throw new DocumentProcessingException("Failed to process the document.", e);
         }
     }
+
 
     /**
      * Validates the approver name and input file.
@@ -946,6 +929,52 @@ public class DocumentServiceImpl implements DocumentService{
         if (inputFile == null || inputFile.isEmpty()) {
             throw new DocumentProcessingException("Input file is null or empty.");
         }
+    }
+
+    /**
+     * Rebuilds the DOCX (ZIP) file in memory by sanitizing its XML entries.
+     * Only entries with names ending with ".xml" are filtered to remove invalid XML characters.
+     *
+     * @param docxInputStream The original DOCX InputStream.
+     * @return A new InputStream for the sanitized DOCX.
+     * @throws IOException if an I/O error occurs.
+     */
+    private InputStream sanitizeDocxInputStream(InputStream docxInputStream) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Use try-with-resources for both Zip streams.
+        try (ZipInputStream zis = new ZipInputStream(docxInputStream);
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                // Create a new entry in the output zip with the same name
+                zos.putNextEntry(new ZipEntry(entryName));
+                if (entryName.endsWith(".xml")) {
+                    // Read the XML content as a String (assume UTF-8 encoding)
+                    String xmlContent = IOUtils.toString(zis, StandardCharsets.UTF_8);
+                    // Sanitize the XML content by removing invalid XML characters (e.g. U+0002)
+                    String sanitizedXml = sanitizeXmlContent(xmlContent);
+                    zos.write(sanitizedXml.getBytes(StandardCharsets.UTF_8));
+                } else {
+                    // For non-XML entries, simply copy the raw bytes.
+                    IOUtils.copy(zis, zos);
+                }
+                zos.closeEntry();
+            }
+        }
+        return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    /**
+     * Removes invalid XML characters from a String.
+     * The regex below removes control characters except for allowed whitespace (tab, newline, carriage return).
+     *
+     * @param xml The XML content to sanitize.
+     * @return The sanitized XML content.
+     */
+    private String sanitizeXmlContent(String xml) {
+        // Remove control characters in the range 0x00-0x08, 0x0B-0x0C, and 0x0E-0x1F.
+        return xml.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "");
     }
 
     /**

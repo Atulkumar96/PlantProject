@@ -182,7 +182,7 @@ public class DocumentController {
     @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("/appendSignature")
     public String appendSignature(@RequestParam("files") MultipartFile file,
-                                  @RequestParam("approverName") String approverName){
+                                  @RequestParam("approverName") String approverName) {
         return documentServiceImpl.appendSignature(file, approverName);
     }
 

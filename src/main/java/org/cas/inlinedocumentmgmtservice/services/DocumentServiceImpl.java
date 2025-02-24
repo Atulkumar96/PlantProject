@@ -152,8 +152,12 @@ public class DocumentServiceImpl implements DocumentService{
                     parentInfo = " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")";
                 }
 
+                // Check if the comment is resolved using the 'Done' property
+                boolean isResolved  = comment.getDone();
+                //boolean isResolved  = comment.getIsDeleteRevision();
+
                 // Add to list
-                commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
+                commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo, isResolved));
             }
 
         } catch (JsonProcessingException e) {
@@ -219,8 +223,11 @@ public class DocumentServiceImpl implements DocumentService{
                     parentInfo = " (Reply to: " + extractTextFromWTextBody(parentComment.getTextBody()) + ")";
                 }
 
+                // Check if the comment is resolved using the 'Done' property
+                boolean isResolved  = comment.getDone();
+
                 // Add to list
-                commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo));
+                commentsList.add(new CommentDto(author, initials, commentText, commentDateTime, parentInfo, isResolved));
             }
 
         } catch (JsonProcessingException e) {
@@ -1025,13 +1032,13 @@ public class DocumentServiceImpl implements DocumentService{
 
     // TODO: Test this overloaded appendSignature method, from Frontend Word Editor or any other client
     /**
-     * Appends a signature to the last paragraph of the provided Word document.
-     * The signature includes the approver's name and the current date.
-     * The modified document is returned as an SFDT string for the frontend Word editor.
+     * Appends a signature to the provided Word document.
+     * The signature includes the approver's name and the current date,
+     * each on its own line (new paragraph), and returns the modified document as an SFDT string.
      *
-     * @param inputFile   the uploaded Word document as a MultipartFile
+     * @param inputFile    the uploaded Word document as a MultipartFile
      * @param approverName the name of the approver
-     * @return the modified document as an SFDT string
+     * @return the modified document as an SFDT string for the frontend Word editor
      * @throws DocumentProcessingException if processing fails
      */
     public String appendSignature(MultipartFile inputFile, String approverName) {
@@ -1041,8 +1048,6 @@ public class DocumentServiceImpl implements DocumentService{
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
         String formattedDate = LocalDate.now().format(formatter);
 
-        // Instead of passing inputFile.getInputStream() directly,
-        // sanitize the DOCX by rebuilding it with sanitized XML entries.
         try (InputStream sanitizedInput = sanitizeDocxInputStream(inputFile.getInputStream());
              WordDocument document = new WordDocument(sanitizedInput)) {
             boolean signatureAdded = false;
@@ -1053,13 +1058,23 @@ public class DocumentServiceImpl implements DocumentService{
                 IWParagraph lastParagraph = section.getBody().getLastParagraph();
 
                 if (lastParagraph != null) {
-                    String signatureText = "Approved by: " + approverName + "\nSigned Date: " + formattedDate;
-                    lastParagraph.appendText("\n"); // New line before signature
-                    lastParagraph.appendText("\n"); // New line before signature
-                    IWTextRange textRange = lastParagraph.appendText(signatureText);
-                    //IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
-                    textRange.getCharacterFormat().setBold(true);
-                    textRange.getCharacterFormat().setFontSize(12);
+                    // Create signature texts
+                    String signedBy = "Approved by: " + approverName;
+                    String signedDate = "Signed Date: " + formattedDate;
+
+                    // Instead of appending to the same paragraph, add new paragraphs
+                    // Add a new paragraph for "Approved by"
+                    IWParagraph signatureParagraph = section.getBody().addParagraph();
+                    IWTextRange signedByRange = signatureParagraph.appendText(signedBy);
+                    signedByRange.getCharacterFormat().setBold(true);
+                    signedByRange.getCharacterFormat().setFontSize(12);
+
+                    // Add another new paragraph for "Signed Date"
+                    IWParagraph dateParagraph = section.getBody().addParagraph();
+                    IWTextRange signedDateRange = dateParagraph.appendText(signedDate);
+                    signedDateRange.getCharacterFormat().setBold(true);
+                    signedDateRange.getCharacterFormat().setFontSize(12);
+
                     signatureAdded = true;
                 }
             }
@@ -1068,14 +1083,13 @@ public class DocumentServiceImpl implements DocumentService{
                 throw new DocumentProcessingException("No valid paragraph found to append the signature.");
             }
 
-            // Convert the modified document to an SFDT string
+            // Convert the modified document to an SFDT string for the frontend Word editor
             return WordProcessorHelper.load(document, true);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error processing document", e);
             throw new DocumentProcessingException("Failed to process the document.", e);
         }
     }
-
 
     /**
      * Validates the approver name and input file.

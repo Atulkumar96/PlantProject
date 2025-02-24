@@ -35,9 +35,11 @@ public class InlineDocumentMgmtServiceApplication {
 
         //1. Test insertLink() method
         try {
-
             DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
-            //documentService.insertLink();
+
+            String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+            String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertLinkDoc.docx";
+            documentService.insertLink(inputFilePath, outputFilePath);
         } catch (Exception e) {
             e.printStackTrace();
         }

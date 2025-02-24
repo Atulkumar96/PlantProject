@@ -14,14 +14,16 @@ public class CommentDto {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "MM-dd-yyyy' 'HH:mm:ss")
     private LocalDateTime commentDateTime;
     private String parentComment;
+    private boolean resolved;
 
-    public CommentDto(String author, String initials, String comment, LocalDateTime commentDateTime,String parentComment) {
+    public CommentDto(String author, String initials, String comment, LocalDateTime commentDateTime,String parentComment, boolean resolved) {
         this.author = author;
         this.initials = initials;
         this.comment = comment;
 
         this.commentDateTime = commentDateTime;
         this.parentComment = parentComment;
+        this.resolved = resolved;
     }
 
     // Getters and Setters
@@ -64,6 +66,14 @@ public class CommentDto {
 
     public void setParentComment(String parentComment) {
         this.parentComment = parentComment;
+    }
+
+    public boolean isResolved() {
+        return resolved;
+    }
+
+    public void setResolved(boolean resolved) {
+        this.resolved = resolved;
     }
 
     // End of Getters and Setters

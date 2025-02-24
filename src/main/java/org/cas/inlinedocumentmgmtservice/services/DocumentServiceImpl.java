@@ -14,6 +14,7 @@ import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.cas.inlinedocumentmgmtservice.exceptions.DocumentProcessingException;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,10 +44,17 @@ import java.util.zip.ZipOutputStream;
 
 @Service
 public class DocumentServiceImpl implements DocumentService{
+    // TODO: If needed have overloaded 'Multipart I/p and return sfdt' for 'InsertOle & InsertLink method'- for now only utilising these methods in jar
+
     private static final Logger LOGGER = Logger.getLogger(DocumentServiceImpl.class.getName());
+    private final ResourceLoader resourceLoader;
 
     private String[] mergeFieldNames = null;
     private String[] mergeFieldValues = null;
+
+    public DocumentServiceImpl(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
 
     // Import the document from the resources folder
     @Override
@@ -698,7 +706,106 @@ public class DocumentServiceImpl implements DocumentService{
         return "{\"sections\":[{\"blocks\":[{\"inlines\":[{\"text\":\"" + message + "\"}]}]}]}";
     }
 
-    public void insertOle() {
+    /**
+     * Inserts OLE objects (PDF, Excel, and Word documents) into the specified Word document.
+     * @param inputFilePath the path of the input document
+     * @param outputFilePath the path of the output document
+     * @param pdfPath the path of the PDF file to embed
+     * @param excelPath the path of the Excel file to embed
+     * @param docPath the path of the Word document to embed
+     */
+    public void insertOle(String inputFilePath, String outputFilePath, String pdfPath, String excelPath, String docPath) {
+        validateFileExists(inputFilePath, pdfPath, excelPath, docPath);
+
+        try (WordDocument document = new WordDocument(inputFilePath);
+             InputStream oleFileStreamPdf = new FileInputStream(pdfPath);
+             InputStream oleFileStreamExcel = new FileInputStream(excelPath);
+             InputStream oleFileStreamDoc = new FileInputStream(docPath);
+             InputStream pdfImageStream = getResourceAsStream("/icons/pdf-icon.png");
+             InputStream excelImageStream = getResourceAsStream("/icons/excel-icon.png");
+             InputStream docImageStream = getResourceAsStream("/icons/doc-icon.png")) {
+
+            if (pdfImageStream == null || excelImageStream == null || docImageStream == null) {
+                throw new DocumentProcessingException("One or more icon resources not found in classpath.");
+            }
+
+            WPicture pdfPicture = createOlePicture(document, pdfImageStream);
+            WPicture excelPicture = createOlePicture(document, excelImageStream);
+            WPicture docPicture = createOlePicture(document, docImageStream);
+
+            for (Object sectionObj : document.getSections()) {
+                WSection section = (WSection) sectionObj;
+                for (Object entity : section.getBody().getChildEntities()) {
+                    if (entity instanceof WParagraph) {
+                        WParagraph paragraph = (WParagraph) entity;
+                        if (paragraph.getText().contains("Subject Matter Experts")) {
+                            paragraph.appendText("\n");
+
+                            appendOleObject(paragraph, oleFileStreamExcel, excelPicture, OleObjectType.ExcelWorksheet);
+                            paragraph.appendText("\n");
+
+                            appendOleObject(paragraph, oleFileStreamDoc, docPicture, OleObjectType.WordDocument);
+                            paragraph.appendText("\n");
+
+                            appendOleObject(paragraph, oleFileStreamPdf, pdfPicture, OleObjectType.AdobeAcrobatDocument);
+                        }
+                    }
+                }
+            }
+
+            document.save(outputFilePath);
+            LOGGER.info("Document with embedded OLE objects saved at: " + outputFilePath);
+
+        } catch (IOException | DocumentProcessingException e) {
+            LOGGER.log(Level.SEVERE, "Error inserting OLE objects into document", e);
+            throw new DocumentProcessingException("Error inserting OLE objects into document", e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // Helper method for insertOle() to validate file paths
+    private void validateFileExists(String... filePaths) {
+        for (String path : filePaths) {
+            if (!Files.exists(Paths.get(path))) {
+                throw new DocumentProcessingException("File not found: " + path);
+            }
+        }
+    }
+
+    // Helper method for insertOle() to get an InputStream from a classpath resource
+    private InputStream getResourceAsStream(String path) throws IOException {
+        return new ClassPathResource(path).getInputStream();
+    }
+
+    // Helper method for insertOle() to create a WPicture object for OLE objects
+    private WPicture createOlePicture(WordDocument document, InputStream imageStream) throws IOException {
+        WPicture picture = null;
+        try {
+            picture = new WPicture(document);
+
+            picture.loadImage(imageStream);
+            picture.setHeight(50);
+            picture.setWidth(50);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return picture;
+    }
+
+    // Helper method for insertOle() to append an OLE object to a paragraph
+    private void appendOleObject(WParagraph paragraph, InputStream oleFile, WPicture picture, OleObjectType type) {
+        WOleObject oleObject = null;
+        try {
+            oleObject = paragraph.appendOleObject(oleFile, picture, type);
+
+            oleObject.setDisplayAsIcon(true);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void insertOleArchive() {
         // Hard-coded file paths for the documents to embed; these might still be externalized.
         String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
 
@@ -775,7 +882,58 @@ public class DocumentServiceImpl implements DocumentService{
         }
     }
 
-    public void insertLink() throws Exception {
+    /**
+     * Inserts a hyperlink into paragraphs that contain a specific text.
+     *
+     * @param inputFilePath  the full path to the source document
+     * @param outputFilePath the full path where the modified document will be saved
+     * @throws IllegalArgumentException if either file path is null or empty
+     * @throws DocumentProcessingException if an error occurs during processing
+     */
+    public void insertLink(String inputFilePath, String outputFilePath) {
+        // Validate inputs
+        if (inputFilePath == null || inputFilePath.isEmpty()) {
+            throw new IllegalArgumentException("Input file path must not be null or empty.");
+        }
+        if (outputFilePath == null || outputFilePath.isEmpty()) {
+            throw new IllegalArgumentException("Output file path must not be null or empty.");
+        }
+
+        // Use try-with-resources to ensure that the document is closed properly.
+        try (WordDocument document = new WordDocument(inputFilePath)) {
+
+            // Iterate through each section in the document
+            for (Object sectionObj : document.getSections()) {
+                if (sectionObj instanceof WSection) {
+                    WSection section = (WSection) sectionObj;
+
+                    // Iterate through the child entities (paragraphs, tables, etc.) in the section
+                    for (Object entity : section.getBody().getChildEntities()) {
+                        if (entity instanceof WParagraph) {
+                            WParagraph paragraph = (WParagraph) entity;
+                            String paragraphText = paragraph.getText();
+
+                            // Check if the paragraph contains the target text
+                            if (paragraphText != null && paragraphText.contains("Subject Matter Experts")) {
+                                // Append a new line and the hyperlink to the paragraph
+                                paragraph.appendText("\n");
+                                paragraph.appendHyperlink("https://www.google.com/", "Google", HyperlinkType.WebLink);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Save the updated document to the provided output file path
+            document.save(outputFilePath);
+
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error while inserting link into document", e);
+            throw new DocumentProcessingException("Failed to insert link into document", e);
+        }
+    }
+
+    public void insertLinkArchive() throws Exception {
         // Load the document from the specified path
         String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
 
@@ -896,7 +1054,10 @@ public class DocumentServiceImpl implements DocumentService{
 
                 if (lastParagraph != null) {
                     String signatureText = "Approved by: " + approverName + "\nSigned Date: " + formattedDate;
-                    IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
+                    lastParagraph.appendText("\n"); // New line before signature
+                    lastParagraph.appendText("\n"); // New line before signature
+                    IWTextRange textRange = lastParagraph.appendText(signatureText);
+                    //IWTextRange textRange = lastParagraph.appendText("\n" + signatureText);
                     textRange.getCharacterFormat().setBold(true);
                     textRange.getCharacterFormat().setFontSize(12);
                     signatureAdded = true;
@@ -922,6 +1083,7 @@ public class DocumentServiceImpl implements DocumentService{
      * @param approverName the name of the approver
      * @param inputFile    the uploaded document as a MultipartFile
      */
+    // Helper method for appendSignature to validate input parameters
     private void validateInputs(String approverName, MultipartFile inputFile) {
         if (approverName == null || approverName.trim().isEmpty()) {
             throw new DocumentProcessingException("Approver name cannot be null or empty.");
@@ -939,6 +1101,7 @@ public class DocumentServiceImpl implements DocumentService{
      * @return A new InputStream for the sanitized DOCX.
      * @throws IOException if an I/O error occurs.
      */
+    // Helper method for appendSignature to sanitize the DOCX InputStream
     private InputStream sanitizeDocxInputStream(InputStream docxInputStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         // Use try-with-resources for both Zip streams.
@@ -972,6 +1135,7 @@ public class DocumentServiceImpl implements DocumentService{
      * @param xml The XML content to sanitize.
      * @return The sanitized XML content.
      */
+    // Helper method for sanitizeDocxInputStream to remove invalid XML characters
     private String sanitizeXmlContent(String xml) {
         // Remove control characters in the range 0x00-0x08, 0x0B-0x0C, and 0x0E-0x1F.
         return xml.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "");

@@ -5,6 +5,7 @@ import com.syncfusion.docio.WordDocument;
 import com.syncfusion.javahelper.system.io.StreamSupport;
 import com.syncfusion.javahelper.system.reflection.AssemblySupport;
 import com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi;
+import org.apache.commons.io.IOUtils;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.cas.inlinedocumentmgmtservice.dtos.ResponseDto;
 import org.cas.inlinedocumentmgmtservice.dtos.SaveDto;
@@ -51,6 +52,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -72,6 +76,16 @@ import com.syncfusion.ej2.wordprocessor.FormatType;
 //import
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventArgs;
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventHandler;
+
+//For New Import
+import com.syncfusion.javahelper.system.collections.generic.*;
+import com.syncfusion.ej2.wordprocessor.*;
+// Below import statements are used for TIFF image conversion
+import javax.imageio.*;
+import javax.imageio.spi.IIORegistry;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi;
 
 
 @RestController
@@ -144,8 +158,18 @@ public class DocumentController {
             //String sfdtContent = WordProcessorHelper.load(file.getInputStream(), getFormatType(format));
 
             String sfdtContent;
+
+            InputStream inputStream;
+            if (".docx".equalsIgnoreCase(format) || ".docm".equalsIgnoreCase(format) ||
+                    ".dotx".equalsIgnoreCase(format) || ".dotm".equalsIgnoreCase(format)) {
+                inputStream = sanitizeDocxInputStream(file.getInputStream());
+            } else {
+                inputStream = file.getInputStream();
+            }
+
             try {
-                sfdtContent = WordProcessorHelper.load(file.getInputStream(), getFormatType(format));
+                sfdtContent = WordProcessorHelper.load(inputStream, getFormatType(format));
+                //sfdtContent = WordProcessorHelper.load(file.getInputStream(), getFormatType(format));
             } catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
                 throw new Exception("Error loading document: " + (cause != null ? cause.getMessage() : e.getMessage()), e);
@@ -200,6 +224,47 @@ public class DocumentController {
         }
     }
     */
+
+    // importFile helper method
+    // Helper method for appendSignature to sanitize the DOCX InputStream
+    private InputStream sanitizeDocxInputStream(InputStream docxInputStream) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Use try-with-resources for both Zip streams.
+        try (ZipInputStream zis = new ZipInputStream(docxInputStream);
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                // Create a new entry in the output zip with the same name
+                zos.putNextEntry(new ZipEntry(entryName));
+                if (entryName.endsWith(".xml")) {
+                    // Read the XML content as a String (assume UTF-8 encoding)
+                    String xmlContent = IOUtils.toString(zis, StandardCharsets.UTF_8);
+                    // Sanitize the XML content by removing invalid XML characters (e.g. U+0002)
+                    String sanitizedXml = sanitizeXmlContent(xmlContent);
+                    zos.write(sanitizedXml.getBytes(StandardCharsets.UTF_8));
+                } else {
+                    // For non-XML entries, simply copy the raw bytes.
+                    IOUtils.copy(zis, zos);
+                }
+                zos.closeEntry();
+            }
+        }
+        return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    /**
+     * Removes invalid XML characters from a String.
+     * The regex below removes control characters except for allowed whitespace (tab, newline, carriage return).
+     *
+     * @param xml The XML content to sanitize.
+     * @return The sanitized XML content.
+     */
+    // Helper method for importFile to remove invalid XML characters
+    private String sanitizeXmlContent(String xml) {
+        // Remove control characters in the range 0x00-0x08, 0x0B-0x0C, and 0x0E-0x1F.
+        return xml.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "");
+    }
 
     // importFile helper method
     private String retrieveFileType(String name) {
@@ -325,4 +390,105 @@ public class DocumentController {
         fileStream.close();
         document.close();
     }
+
+    //New Import Endpoint
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("/Import1")
+    public String importFile1(@RequestParam("files") MultipartFile file) throws Exception {
+        try {
+            WordDocument docIoDocument = new WordDocument(file.getInputStream());
+
+            MetafileImageParsedEventHandler metafileImageParsedEvent = new MetafileImageParsedEventHandler() {
+
+                ListSupport<MetafileImageParsedEventHandler> delegateList = new ListSupport<MetafileImageParsedEventHandler>(
+                        MetafileImageParsedEventHandler.class);
+
+                // Represents event handling for MetafileImageParsedEventHandlerCollection.
+                public void invoke(Object sender, MetafileImageParsedEventArgs args) throws Exception {
+                    OnMetafileImageParsed(sender, args);
+                }
+
+                // Represents the method that handles MetafileImageParsed event.
+                public void dynamicInvoke(Object... args) throws Exception {
+                    OnMetafileImageParsed((Object) args[0], (MetafileImageParsedEventArgs) args[1]);
+                }
+
+                // Represents the method that handles MetafileImageParsed event to add collection item.
+                public void add(MetafileImageParsedEventHandler delegate) throws Exception {
+                    if (delegate != null)
+                        delegateList.add(delegate);
+                }
+
+                // Represents the method that handles MetafileImageParsed event to remove collection
+                // item.
+                public void remove(MetafileImageParsedEventHandler delegate) throws Exception {
+                    if (delegate != null)
+                        delegateList.remove(delegate);
+                }
+            };
+            // Hooks MetafileImageParsed event.
+            WordProcessorHelper.MetafileImageParsed.add("OnMetafileImageParsed", metafileImageParsedEvent);
+            // Converts DocIO DOM to SFDT DOM.
+            String sfdtContent = WordProcessorHelper.load(docIoDocument);
+            // Unhooks MetafileImageParsed event.
+            WordProcessorHelper.MetafileImageParsed.remove("OnMetafileImageParsed", metafileImageParsedEvent);
+            return sfdtContent;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "{\"sections\":[{\"blocks\":[{\"inlines\":[{\"text\":" + e.getMessage() + "}]}]}]}";
+        }
+    }
+
+    // Converts Metafile to raster image.
+    private static void OnMetafileImageParsed(Object sender, MetafileImageParsedEventArgs args) throws Exception {
+        if (args.getIsMetafile())
+        {
+            //MetaFile image conversion(EMF and WMF)
+            //You can write your own method definition for converting metafile to raster image using any third-party image converter.
+            //args.setImageStream(ConvertMetafileToRasterImage(args.getMetafileStream())) ;
+        }
+        else
+        {
+            //TIFF image conversion
+            //args.setImageStream(ConvertTiffToRasterImage(args.getMetafileStream())) ;
+        }
+    }
+
+    /**
+    private static StreamSupport ConvertTiffToRasterImage(StreamSupport ImageStream) throws Exception {
+        InputStream inputStream = StreamSupport.toStream(args.getMetafileStream());
+        // Use ByteArrayOutputStream to collect data into a byte array
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+        // Read data from the InputStream and write it to the ByteArrayOutputStream
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            byteArrayOutputStream.write(buffer, 0, bytesRead);
+        }
+
+        // Convert the ByteArrayOutputStream to a byte array
+        byte[] tiffData = byteArrayOutputStream.toByteArray();
+        // Read TIFF image from byte array
+        ByteArrayInputStream tiffInputStream = new ByteArrayInputStream(tiffData);
+        IIORegistry.getDefaultInstance().registerServiceProvider(new TIFFImageReaderSpi());
+
+        // Create ImageReader and ImageWriter instances
+        ImageReader tiffReader = ImageIO.getImageReadersByFormatName("TIFF").next();
+        ImageWriter pngWriter = ImageIO.getImageWritersByFormatName("PNG").next();
+
+        // Set up input and output streams
+        tiffReader.setInput(ImageIO.createImageInputStream(tiffInputStream));
+        ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
+        pngWriter.setOutput(ImageIO.createImageOutputStream(pngOutputStream));
+
+        // Read the TIFF image and write it as a PNG
+        BufferedImage image = tiffReader.read(0);
+        pngWriter.write(image);
+        pngWriter.dispose();
+        byte[] jpgData = pngOutputStream.toByteArray();
+        InputStream jpgStream = new ByteArrayInputStream(jpgData);
+        return StreamSupport.toStream(jpgStream);
+    }
+    */
 }

@@ -1,6 +1,5 @@
 package org.cas.inlinedocumentmgmtservice.controllers;
 
-
 import com.syncfusion.docio.WordDocument;
 import com.syncfusion.javahelper.system.io.StreamSupport;
 import com.syncfusion.javahelper.system.reflection.AssemblySupport;
@@ -16,26 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import org.springframework.web.bind.annotation.*;
-
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.ImageWriter;
-import javax.imageio.spi.IIORegistry;
-
-import java.awt.image.BufferedImage;
-
-
-import org.springframework.web.bind.annotation.*;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -55,25 +36,10 @@ import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.multipart.MultipartFile;
 import com.syncfusion.ej2.wordprocessor.WordProcessorHelper;
 import com.syncfusion.javahelper.system.collections.generic.ListSupport;
-//import com.syncfusion.javahelper.system.io.StreamSupport;
-//import com.syncfusion.javahelper.system.reflection.AssemblySupport;
-import com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi;
-//import com.google.gson.Gson;
-//import com.google.gson.JsonArray;
-//import com.google.gson.JsonObject;
-import com.syncfusion.ej2.spellchecker.DictionaryData;
-import com.syncfusion.ej2.spellchecker.SpellChecker;
-//import com.syncfusion.docio.WordDocument;
 import com.syncfusion.ej2.wordprocessor.FormatType;
-//import
+
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventArgs;
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventHandler;
 
@@ -369,15 +335,6 @@ public class DocumentController {
             default:
                 throw new Exception("EJ2 WordProcessor does not support this file format.");
         }
-    }
-
-    // Convert String sfdt to docx
-    private void convertSfdtToDocx(String sfdtContent, String filePath) throws Exception {
-        WordDocument document = WordProcessorHelper.save(sfdtContent);
-        FileOutputStream fileStream = new FileOutputStream(filePath);
-        document.save(fileStream, com.syncfusion.docio.FormatType.Docx);
-        fileStream.close();
-        document.close();
     }
 
 }

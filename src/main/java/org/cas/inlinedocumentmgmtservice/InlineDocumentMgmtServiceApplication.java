@@ -66,6 +66,7 @@ public class InlineDocumentMgmtServiceApplication {
             String inputEmbeddingDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
 
             documentService.insertOle(inputFilePath, outputFilePath, inputEmbeddingPdfPath, inputEmbeddingExcelPath, inputEmbeddingDocPath);
+            documentService.convertDocument();
         } catch (Exception e) {
             e.printStackTrace();
         }

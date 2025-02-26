@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.syncfusion.docio.*;
 import com.syncfusion.ej2.wordprocessor.WordProcessorHelper;
-import com.syncfusion.docio.FormFieldType;
-//import com.syncfusion.javahelper.drawing.Color;
 import com.syncfusion.javahelper.system.drawing.ColorSupport;
-import com.syncfusion.javahelper.system.io.FileStreamSupport;
 import org.apache.commons.io.IOUtils;
 import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
@@ -18,24 +15,14 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-//import com.syncfusion.javahelper.drawing.Color;
-
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.awt.Color;
-
-import java.io.File;
-import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
@@ -889,6 +876,45 @@ public class DocumentServiceImpl implements DocumentService{
         }
     }
 
+    public String convertDocument() {
+        // Adjust the file paths as needed for your environment.
+        String inputDocPath = "C:\\Users\\Desktop\\Inline Document Service\\Test\\OleObject.docx";
+        String pdfFilePath = "C:\\Users\\Desktop\\Inline Document Service\\Test\\AdventureCycles.pdf";
+        String pdfIconPath = "C:\\Users\\Desktop\\Inline Document Service\\Test\\pdf.png";
+        String outputDocPath = "C:\\Users\\Desktop\\Inline Document Service\\Test\\Result.docx";
+
+        try (FileInputStream docStream = new FileInputStream(inputDocPath);
+             FileInputStream oleStream = new FileInputStream(pdfFilePath);
+             WordDocument wordDocument = new WordDocument(docStream, FormatType.Docx)) {
+
+            // Add a new paragraph to the last section of the document.
+            IWParagraph paragraph = wordDocument.getLastSection().getBody().addParagraph();
+
+            // Read the image bytes for the icon.
+            byte[] imageBytes = Files.readAllBytes(Paths.get(pdfIconPath));
+            WPicture pdfPicture = new WPicture(wordDocument);
+            pdfPicture.loadImage(imageBytes);
+            pdfPicture.setWidth(50);
+            pdfPicture.setHeight(50);
+
+            // Append the PDF as an OLE object with the icon.
+            WOleObject oleObjectPdf = paragraph.appendOleObject(oleStream, pdfPicture, OleObjectType.AdobeAcrobatDocument);
+
+            // Set the ProgId to ensure the embedded PDF opens correctly
+            oleObjectPdf.setObjectType("Acrobat.Document.DC");
+
+            // Save the modified document.
+            try (FileOutputStream outStream = new FileOutputStream(outputDocPath)) {
+                wordDocument.save(outStream, FormatType.Docx);
+            }
+
+            return "Document conversion successful! Output file created at: " + outputDocPath;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error during conversion: " + e.getMessage();
+        }
+    }
+
     /**
      * Inserts a hyperlink into paragraphs that contain a specific text.
      *
@@ -938,42 +964,6 @@ public class DocumentServiceImpl implements DocumentService{
             LOGGER.log(Level.SEVERE, "Error while inserting link into document", e);
             throw new DocumentProcessingException("Failed to insert link into document", e);
         }
-    }
-
-    public void insertLinkArchive() throws Exception {
-        // Load the document from the specified path
-        String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
-
-        WordDocument document = new WordDocument(inputFilePath);
-
-        // Iterate through the sections in the document
-        for (Object sectionObj : document.getSections()) {
-            WSection section = (WSection) sectionObj;
-
-            // Iterate through the child entities in the section, child entities can be tables, paragraphs etc.
-            for (Object entity : section.getBody().getChildEntities()) {
-                if (entity instanceof WParagraph) {
-                    WParagraph paragraph = (WParagraph) entity;
-
-                    // if the paragraph contains the text "Subject Matter Experts" then insert the image at the end of the paragraph
-                    if (paragraph.getText().contains("Subject Matter Experts")) {
-
-                        IWTextRange textRange = paragraph.appendText("\n");
-
-                        // Append the link to the paragraph
-                        paragraph.appendHyperlink("https://www.google.com/", "Google", HyperlinkType.WebLink);
-                    }
-
-                }
-            }
-
-        }
-
-        // Save the document to the specified path
-        String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertLink.docx";
-        document.save(outputFilePath);
-
-        document.close();
     }
 
     /**

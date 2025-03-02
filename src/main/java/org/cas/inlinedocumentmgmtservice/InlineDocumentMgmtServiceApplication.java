@@ -33,6 +33,19 @@ public class InlineDocumentMgmtServiceApplication {
         // Test the methods in DocumentServiceImpl
         ResourceLoader resourceLoader = new DefaultResourceLoader();
 
+        //1. Test addComments() method
+        try {
+            DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
+
+            String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1_add_comments_programmat.docx";
+            int noOfComments = 500;
+
+            documentService.addComments(inputFilePath, noOfComments);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
         //1. Test insertLink() method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
@@ -55,28 +68,28 @@ public class InlineDocumentMgmtServiceApplication {
         }
 
         //2. Test insertOle() method
-        try {
-            DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
-
-            String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
-            String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertObjectDoc.docx";
-
-            String inputEmbeddingPdfPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testPdf.pdf";
-            String inputEmbeddingExcelPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testExcel.xlsx";
-            String inputEmbeddingDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
-
-            documentService.insertOle(inputFilePath, outputFilePath, inputEmbeddingPdfPath, inputEmbeddingExcelPath, inputEmbeddingDocPath);
-            documentService.convertDocument();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+//        try {
+//            DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
+//
+//            String inputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1.docx";
+//            String outputFilePath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\insertObjectDoc.docx";
+//
+//            String inputEmbeddingPdfPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testPdf.pdf";
+//            String inputEmbeddingExcelPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testExcel.xlsx";
+//            String inputEmbeddingDocPath = "C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\testDoc.docx";
+//
+//            documentService.insertOle(inputFilePath, outputFilePath, inputEmbeddingPdfPath, inputEmbeddingExcelPath, inputEmbeddingDocPath);
+//            documentService.convertDocument();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
 
 
         //3. Test extractReviewComments method
         try {
             DocumentServiceImpl documentService = new DocumentServiceImpl(resourceLoader);
             //C:\Users\Lenovo\Desktop\Inline Document Service\Test
-            String commentsList = documentService.extractReviewComments("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\Test\\Plant-NERC-RCP-CIP-002.docx");
+            String commentsList = documentService.extractReviewComments("C:\\Users\\Lenovo\\Desktop\\Inline Document Service\\RSAW BAL-001-2_2016_v1_add_comments_programmat.docx");
             //for (CommentDto comment : commentsList) {
             System.out.println(commentsList);
             //}

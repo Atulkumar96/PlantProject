@@ -94,6 +94,32 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     /**
+     * Adds multiple comments to the first paragraph of the document.
+     *
+     * @param documentPath the path of the input document
+     * @param noOfComments the number of comments to add
+     * @throws Exception if an error occurs during processing
+     */
+    public void addComments(String documentPath, int noOfComments) throws Exception {
+        try (WordDocument document = new WordDocument(documentPath, FormatType.Docx)) {
+
+            // Get the first section and its first paragraph.
+            WSection section = (WSection) document.getSections().get(0);
+            WParagraph paragraph = (WParagraph) section.getBody().getChildEntities().get(0);
+
+            // Loop to add the specified number of comments.
+            for (int i = 1; i <= noOfComments; i++) {
+                WComment comment = paragraph.appendComment("Comment " + i);
+                comment.getFormat().setUser("Atul");
+                comment.getFormat().setUserInitials("At");
+                comment.getFormat().setDateTime(LocalDateTime.now());
+            }
+            // (Optional) You can save the document here if needed:
+             document.save(documentPath);
+        }
+    }
+
+    /**
      * Extracts review comments from the Word document
      * @param documentPath
      * @return JSON formatted String of the extracted comments
@@ -528,6 +554,7 @@ public class DocumentServiceImpl implements DocumentService{
         // Use the first row as a template for cell structure (assuming table has at least one row)
         if (table.getRows() != null) {
             WTableRow templateRow = (WTableRow) table.getRows().get(1);
+            //WTableRow templateRow = (WTableRow) table.getRows().get(1).clone();
 
             // Iterate through the cells of the template row
             for (Object cellObj : templateRow.getCells()) {

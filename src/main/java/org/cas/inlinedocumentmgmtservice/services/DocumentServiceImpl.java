@@ -1047,7 +1047,8 @@ public class DocumentServiceImpl implements DocumentService{
         }
     }
 
-    // TODO: Test this overloaded appendSignature method, from Frontend Word Editor or any other client
+    // TODO: Location of appending signature in doc. is to be finalized
+
     /**
      * Appends a signature to the provided Word document.
      * The signature includes the approver's name and the current date,

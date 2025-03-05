@@ -31,6 +31,9 @@ public class InlineDocumentMgmtServiceApplication {
         SyncfusionLicenseProvider.registerLicense("GTIlMmhha31ifWBgaGBifGJhfGpqampzYWBpZmppZmpoMicmPxMwPzIhOicqICogJzY+IDo9MH0wPD4=");
 
         // Test the methods in DocumentServiceImpl
+        /**
+         * Test the methods in DocumentServiceImpl
+
         ResourceLoader resourceLoader = new DefaultResourceLoader();
 
         //1. Test addComments() method
@@ -118,6 +121,8 @@ public class InlineDocumentMgmtServiceApplication {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+         */
 
     }
 }

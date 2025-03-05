@@ -8,8 +8,10 @@ import org.apache.commons.io.IOUtils;
 import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.cas.inlinedocumentmgmtservice.dtos.ResponseDto;
 import org.cas.inlinedocumentmgmtservice.dtos.SaveDto;
+import org.cas.inlinedocumentmgmtservice.exceptions.DocumentProcessingException;
 import org.cas.inlinedocumentmgmtservice.services.DocumentService;
 import org.cas.inlinedocumentmgmtservice.services.DocumentServiceImpl;
+import org.cas.inlinedocumentmgmtservice.services.TemplateFileUploadService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,25 +50,58 @@ import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventHandler;
 public class DocumentController {
     private final DocumentService documentService;
     private final DocumentServiceImpl documentServiceImpl;
+    private final TemplateFileUploadService templateFileUploadService;
 
-    public DocumentController(DocumentService documentService, DocumentServiceImpl documentServiceImpl) {
+    public DocumentController(DocumentService documentService, DocumentServiceImpl documentServiceImpl, TemplateFileUploadService templateFileUploadService) {
         this.documentService = documentService;
         this.documentServiceImpl = documentServiceImpl;
+        this.templateFileUploadService = templateFileUploadService;
     }
 
     /**
      * This endpoint is used to generate a document by mail merge operation.
-     * @param plantDto
+     * @param plantDto- PlantName
      * @return
      * Todo: On the basis of standard- import the document
      * standard: NUMBER;
      * client id: plantNameId is the plant name according to which plant details will be fetched for mail merge
      */
 
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("/generate")
     public ResponseEntity<ResponseDto> mailMerge(@RequestBody PlantDto plantDto) {
         documentService.mailMerge(plantDto);
         return ResponseEntity.ok(new ResponseDto(HttpStatus.OK, "Mail merge successful"));
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("/policyANDprocedure")
+    public ResponseEntity<String> uploadPolicyAndProcedure(
+            @RequestParam("clientId") String clientId,
+            @RequestParam("standard") String standard,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            String fileName;
+            if (clientId == null || clientId.trim().isEmpty()) {
+                fileName = standard + "_policyANDprocedure.docx";
+            } else {
+                fileName = clientId + "_" + standard + "_policyANDprocedure.docx";
+            }
+
+            String uploadedUrl = templateFileUploadService.uploadFile(file, fileName);
+            return ResponseEntity.ok(uploadedUrl);
+        }
+        catch (DocumentProcessingException e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("File upload failed: " + e.getMessage());
+        }
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("/appendSignature")
+    public String appendSignature(@RequestParam("files") MultipartFile file,
+                                  @RequestParam("approverName") String approverName) {
+        return documentServiceImpl.appendSignature(file, approverName);
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -158,12 +193,6 @@ public class DocumentController {
         }
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
-    @PostMapping("/appendSignature")
-    public String appendSignature(@RequestParam("files") MultipartFile file,
-                                  @RequestParam("approverName") String approverName) {
-        return documentServiceImpl.appendSignature(file, approverName);
-    }
 
     /**
     @PostMapping(value = "/protectDocument", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

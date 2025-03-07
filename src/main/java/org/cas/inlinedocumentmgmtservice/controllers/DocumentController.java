@@ -98,6 +98,29 @@ public class DocumentController {
     }
 
     @CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("/RSAW")
+    public ResponseEntity<String> uploadRSAW(
+            @RequestParam("clientId") String clientId,
+            @RequestParam("standard") String standard,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            String fileName;
+            if (clientId == null || clientId.trim().isEmpty()) {
+                fileName = standard + "_RSAW.docx";
+            } else {
+                fileName = clientId + "_" + standard + "_RSAW.docx";
+            }
+
+            String uploadedUrl = templateFileUploadService.uploadFileAfterProtecting(file, fileName);
+            return ResponseEntity.ok(uploadedUrl);
+        }
+        catch (DocumentProcessingException e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("File upload failed: " + e.getMessage());
+        }
+    }
+
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("/appendSignature")
     public String appendSignature(@RequestParam("files") MultipartFile file,
                                   @RequestParam("approverName") String approverName) {

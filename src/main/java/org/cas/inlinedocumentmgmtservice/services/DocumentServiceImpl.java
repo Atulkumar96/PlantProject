@@ -405,12 +405,120 @@ public class DocumentServiceImpl implements DocumentService{
 
     // TODO: Test this overloaded protectDocument method, from Frontend Word Editor or any other client
     /**
-     * Protects the document and makes the content with only green background editable
-     * @param file MultipartFile input stream
-     * @return void
+     * Protects the document and makes the content with only green backcolor fields editable
+     * @param  MultipartFile input stream
+     * @return byte[]
      * @throws DocumentProcessingException
      */
-    public void protectDocument(MultipartFile file) throws DocumentProcessingException {
+    public static byte[] protectDocument(MultipartFile file) throws DocumentProcessingException {
+        File tempFile = null;
+        try (InputStream inputStream = file.getInputStream();
+             WordDocument document = new WordDocument(inputStream, FormatType.Docx)) {
+
+            // Process the document (sections, tables, paragraphs, etc.) as needed
+            if (document.getSections() != null) {
+                for (Object sectionObj : document.getSections()) {
+                    if (!(sectionObj instanceof WSection)) {
+                        continue;
+                    }
+                    WSection section = (WSection) sectionObj;
+                    if (section.getBody() == null || section.getBody().getChildEntities() == null) {
+                        continue;
+                    }
+                    for (Object entity : section.getBody().getChildEntities()) {
+                        // Process tables
+                        if (entity instanceof WTable) {
+                            WTable table = (WTable) entity;
+                            boolean hasGreenRow = false;
+                            if (table.getRows() != null) {
+                                for (Object rowObj : table.getRows()) {
+                                    if (!(rowObj instanceof WTableRow)) {
+                                        continue;
+                                    }
+                                    WTableRow row = (WTableRow) rowObj;
+                                    if (row.getCells() != null) {
+                                        for (Object cellObj : row.getCells()) {
+                                            if (!(cellObj instanceof WTableCell)) {
+                                                continue;
+                                            }
+                                            WTableCell cell = (WTableCell) cellObj;
+                                            if (cell.getCellFormat() != null &&
+                                                    Objects.equals(cell.getCellFormat().getBackColor(),
+                                                            ColorSupport.fromArgb(-1, -51, -1, -51))) {
+
+                                                hasGreenRow = true;
+                                                if (cell.getParagraphs() != null) {
+                                                    for (Object paraObj : cell.getParagraphs()) {
+                                                        if (!(paraObj instanceof WParagraph)) {
+                                                            continue;
+                                                        }
+                                                        WParagraph paragraphInGreen = (WParagraph) paraObj;
+                                                        String paragraphText = paragraphInGreen.getText();
+                                                        paragraphInGreen.setText("");
+                                                        IInlineContentControl contentControl = (InlineContentControl)
+                                                                paragraphInGreen.appendInlineContentControl(ContentControlType.Text);
+                                                        WTextRange textRange = new WTextRange(document);
+                                                        textRange.setText(paragraphText);
+                                                        contentControl.getParagraphItems().add(textRange);
+                                                        if (contentControl.getContentControlProperties() != null) {
+                                                            contentControl.getContentControlProperties().setLockContentControl(false);
+                                                            contentControl.getContentControlProperties().setLockContents(false);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Optional: add an editable row if desired
+                            // if (hasGreenRow) { addEditableRowToTable(document, table); }
+                        }
+                        // Process paragraphs
+                        else if (entity instanceof WParagraph) {
+                            WParagraph paragraph = (WParagraph) entity;
+                            if (paragraph.getParagraphFormat() != null &&
+                                    Objects.equals(paragraph.getParagraphFormat().getBackColor(),
+                                            ColorSupport.fromArgb(-1, -51, -1, -51))) {
+
+                                String paragraphValue = paragraph.getText();
+                                paragraph.setText("");
+                                IInlineContentControl contentControl = (InlineContentControl)
+                                        paragraph.appendInlineContentControl(ContentControlType.Text);
+                                WTextRange textRange = new WTextRange(document);
+                                textRange.setText(paragraphValue);
+                                contentControl.getParagraphItems().add(textRange);
+                                if (contentControl.getContentControlProperties() != null) {
+                                    contentControl.getContentControlProperties().setLockContentControl(false);
+                                    contentControl.getContentControlProperties().setLockContents(false);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set document protection to allow only form fields modifications
+            document.protect(ProtectionType.AllowOnlyFormFields);
+
+            // Create a temporary file to persist the updated document
+            tempFile = File.createTempFile("protectedDocument", ".docx");
+            document.save(tempFile.getAbsolutePath()); // save expects a String path
+
+            // Read the file back into a byte array
+            byte[] protectedBytes = java.nio.file.Files.readAllBytes(tempFile.toPath());
+            return protectedBytes;
+        } catch (Exception e) {
+            throw new DocumentProcessingException("Failed to protect document.", e);
+        } finally {
+            // Clean up the temporary file if it exists
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
+        }
+    }
+
+    public void protectDocumentArchive(MultipartFile file) throws DocumentProcessingException {
         // Use try-with-resources to ensure the document is closed properly
         try (InputStream inputStream = file.getInputStream();
              WordDocument document = new WordDocument(inputStream, FormatType.Docx)) {
@@ -536,6 +644,7 @@ public class DocumentServiceImpl implements DocumentService{
             throw new DocumentProcessingException("Failed to protect document.", e);
         }
     }
+
 
     /**
      * Adds a new editable row to the specified table.

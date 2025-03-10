@@ -73,7 +73,7 @@ public class TemplateFileUploadService {
     }
 
     /**
-     * Protects the Document and ploads a file to Firebase and returns the URL of the uploaded file.
+     * Protects the RSAW Document and uploads a file to Firebase and returns the URL of the uploaded file.
      * @param file The file to upload
      * @param fileName The name of the file
      * @return The URL of the uploaded file

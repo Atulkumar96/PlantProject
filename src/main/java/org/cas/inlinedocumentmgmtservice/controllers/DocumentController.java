@@ -45,6 +45,7 @@ import com.syncfusion.ej2.wordprocessor.FormatType;
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventArgs;
 import com.syncfusion.ej2.wordprocessor.MetafileImageParsedEventHandler;
 
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RestController
 @RequestMapping("/api/inlineDocumentService")
 public class DocumentController {
@@ -63,18 +64,18 @@ public class DocumentController {
      * @param plantDto- PlantName
      * @return
      * Todo: On the basis of standard- import the document
+     * Todo: On the basis of plantName- fetch the plant details
+     * Todo: When import with no file then fetch the doc. from Firebase and do the generation/mailmerge operation
      * standard: NUMBER;
      * client id: plantNameId is the plant name according to which plant details will be fetched for mail merge
      */
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("/generate")
     public ResponseEntity<ResponseDto> mailMerge(@RequestBody PlantDto plantDto) {
         documentService.mailMerge(plantDto);
         return ResponseEntity.ok(new ResponseDto(HttpStatus.OK, "Mail merge successful"));
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("/policyANDprocedure")
     public ResponseEntity<String> uploadPolicyAndProcedure(
             @RequestParam("clientId") String clientId,
@@ -97,7 +98,7 @@ public class DocumentController {
         }
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
+
     @PostMapping("/RSAW")
     public ResponseEntity<String> uploadRSAW(
             @RequestParam("clientId") String clientId,
@@ -120,14 +121,14 @@ public class DocumentController {
         }
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
+
     @PostMapping("/appendSignature")
     public String appendSignature(@RequestParam("files") MultipartFile file,
                                   @RequestParam("approverName") String approverName) {
         return documentServiceImpl.appendSignature(file, approverName);
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
+
     @PostMapping("Import")
     public String importFile(@RequestParam("files") MultipartFile file) throws Exception {
         try {
@@ -197,7 +198,14 @@ public class DocumentController {
         }
     }
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    /**
+     * This endpoint is used to save the document to firebase and return the link
+     * Todo: Save the document to firebase and return the link
+     * @param data
+     * @throws Exception
+     */
+
+
     @PostMapping("Save")
     public void saveFile(@RequestBody SaveDto data) throws Exception {
         try {

@@ -59,12 +59,13 @@ public class DocumentServiceImplTest {
     @Test
     void testMailMerge_Success() {
         // Create a PlantDto instance and set its plant name to "TestPlant".
-        PlantDto plantDto = new PlantDto();
-        plantDto.setPlant("TestPlant");
+        //PlantDto plantDto = new PlantDto();
+        //plantDto.setPlant("TestPlant");
+        String plantName = "TestPlant";
 
         // Verify that calling mailMerge on documentServiceImpl does not throw any exceptions.
         // This ensures that the method works as expected with valid input.
-        assertDoesNotThrow(() -> documentServiceImpl.mailMerge(plantDto));
+        assertDoesNotThrow(() -> documentServiceImpl.mailMerge(plantName));
     }
 
     /**

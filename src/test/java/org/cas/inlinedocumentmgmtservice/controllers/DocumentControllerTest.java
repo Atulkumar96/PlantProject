@@ -67,14 +67,16 @@ public class DocumentControllerTest {
     @Test
     void testMailMerge_Success() {
         // Arrange: Creates a sample DTO (PlantDto) that represents input data
-        PlantDto plantDto = new PlantDto();
-        plantDto.setPlant("TestPlant");
+        //PlantDto plantDto = new PlantDto();
+        //plantDto.setPlant("TestPlant");
+
+        String plantName = "TestPlant";
 
         // Mock: Mocks the behavior of the mailMerge() method in DocumentService
-        doNothing().when(documentService).mailMerge(plantDto);
+        doNothing().when(documentService).mailMerge(plantName);
 
         // Act: Calls the mailMerge method in DocumentController
-        ResponseEntity<ResponseDto> response = documentController.mailMerge(plantDto);
+        ResponseEntity<ResponseDto> response = documentController.mailMerge(plantName);
 
         // Assert: expected and actual values are compared
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -116,7 +118,7 @@ public class DocumentControllerTest {
         when(mockFile.getInputStream()).thenReturn(new ByteArrayInputStream(validDocxBytes));
 
         // Invoke the controller method that handles the file import.
-        String result = documentController.importFile(mockFile);
+        String result = documentController.importFile(mockFile, null);
 
         // Assert: Verify that a non-null result is returned.
         assertNotNull(result);

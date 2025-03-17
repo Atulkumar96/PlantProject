@@ -8,6 +8,6 @@ import java.util.Map;
 
 public interface DocumentService {
     public WordDocument importDocument();
-    public void mailMerge(PlantDto plantDto);
+    public void mailMerge(String plantName);
     public void fetchPlantDetails(String plant);
 }

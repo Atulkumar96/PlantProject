@@ -61,7 +61,6 @@ public class DocumentController {
 
     /**
      * This endpoint is used to generate a document by mail merge operation.
-     * @param plantDto- PlantName
      * @return
      * Todo: On the basis of standard- import the document
      * Todo: On the basis of plantName- fetch the plant details
@@ -71,8 +70,8 @@ public class DocumentController {
      */
 
     @PostMapping("/generate")
-    public ResponseEntity<ResponseDto> mailMerge(@RequestBody PlantDto plantDto) {
-        documentService.mailMerge(plantDto);
+    public ResponseEntity<ResponseDto> mailMerge(@RequestParam String plantName) {
+        documentService.mailMerge(plantName);
         return ResponseEntity.ok(new ResponseDto(HttpStatus.OK, "Mail merge successful"));
     }
 
@@ -128,9 +127,31 @@ public class DocumentController {
         return documentServiceImpl.appendSignature(file, approverName);
     }
 
+    /**
+     * This endpoint is used to import a file and return the content in Sfdt format
+     * If no file is provided, the plantName is used to AutoGenerate the document by performing mail merge operation
+     * @param file
+     * @param plantName
+     * @return
+     * @throws Exception
+     */
 
+    //@CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("Import")
-    public String importFile(@RequestParam("files") MultipartFile file) throws Exception {
+        public String importFile(@RequestPart(value = "files", required = false) MultipartFile file,
+                                 @RequestParam(value = "plantName", required = false) String plantName) throws Exception {
+
+        // If no file is provided, use the PlantDto to perform mail merge
+        if (file == null || file.isEmpty()) {
+            if (plantName == null) {
+                throw new Exception("Either import a file or provide plant details to AutoGenerate the document");
+            }
+
+            // Perform mail merge operation to generate the document
+            documentService.mailMerge(plantName);
+            return "Mail merge successful";
+        }
+
         try {
             String name = file.getOriginalFilename();
             if (name == null || name.isEmpty()) {
@@ -205,7 +226,7 @@ public class DocumentController {
      * @throws Exception
      */
 
-
+    //@CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("Save")
     public void saveFile(@RequestBody SaveDto data) throws Exception {
         try {

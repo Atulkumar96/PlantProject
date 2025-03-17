@@ -111,9 +111,9 @@ public class DocumentServiceBenchmark {
     @OutputTimeUnit(TimeUnit.MILLISECONDS)
     public void benchmarkMailMerge() throws Exception {
         // Create a simple PlantDto instance.
-        PlantDto plantDto = new PlantDto();
-        plantDto.setPlant("plant1");
-        documentServiceImpl.mailMerge(plantDto);
+        //PlantDto plantDto = new PlantDto();
+        String plantName = "Electric Plant";
+        documentServiceImpl.mailMerge(plantName);
     }
 
     //==========================================================================

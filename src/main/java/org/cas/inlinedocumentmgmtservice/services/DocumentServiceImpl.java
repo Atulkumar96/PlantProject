@@ -8,7 +8,6 @@ import com.syncfusion.ej2.wordprocessor.WordProcessorHelper;
 import com.syncfusion.javahelper.system.drawing.ColorSupport;
 import org.apache.commons.io.IOUtils;
 import org.cas.inlinedocumentmgmtservice.dtos.CommentDto;
-import org.cas.inlinedocumentmgmtservice.dtos.PlantDto;
 import org.cas.inlinedocumentmgmtservice.exceptions.DocumentProcessingException;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.ResourceLoader;
@@ -43,8 +42,8 @@ public class DocumentServiceImpl implements DocumentService{
         this.resourceLoader = resourceLoader;
     }
 
-    // Import the document from the resources folder
-    @Override
+    // Import the Template Document From Firebase
+    // We have File in Firebase as fileName = clientId + "_" + standard + "_policyANDprocedure.docx"
     public WordDocument importDocument() {
 
         try {
@@ -63,11 +62,13 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     /**
+     * Mail Merge Core Functionality via importing doc from local resource file
+     *
      * Performs mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
-     * @param plantDto PlantDto object
+     * @param plantName plantName
      */
     @Override
-    public void mailMerge(PlantDto plantDto) {
+    public void mailMerge(String plantName) {
 
         // Get the download folder path
         String downloadsFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
@@ -76,7 +77,7 @@ public class DocumentServiceImpl implements DocumentService{
         WordDocument document = importDocument();
 
         //2. Fetch the plant details based on the plant name
-        fetchPlantDetails(plantDto.getPlant());
+        fetchPlantDetails(plantName);
 
         //3. Perform mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
         try {
@@ -84,7 +85,57 @@ public class DocumentServiceImpl implements DocumentService{
             document.getMailMerge().execute(mergeFieldNames, mergeFieldValues);
 
             //3. Save and close the WordDocument instance
-            document.save(downloadsFolderPath + File.separator + "MailMergeWord2.docx");
+            document.save(downloadsFolderPath + File.separator + "MailMergeWord3.docx");
+            document.close();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    // Import the document from the resources folder
+    public WordDocument importDocumentFromResource() {
+
+        try {
+            // Read the document from the resources folder
+            ClassPathResource classPathResource = new ClassPathResource("Plant-NERC-RCP-CIP-002.docx");
+
+            // Get the input stream from the class path resource
+            InputStream inputStream = classPathResource.getInputStream();
+
+            // Return the WordDocument instance from the input stream
+            return new WordDocument(inputStream);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Mail Merge Core Functionality via importing doc from local resource file
+     *
+     * Performs mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
+     * @param plantName plantName
+     */
+    public void mailMergeFromToLocalFile(String plantName) {
+
+        // Get the download folder path
+        String downloadsFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
+
+        //1. Import the document
+        WordDocument document = importDocumentFromResource();
+
+        //2. Fetch the plant details based on the plant name
+        fetchPlantDetails(plantName);
+
+        //3. Perform mail merge operation with the fetched plant details in mergeFieldNames and mergeFieldValues
+        try {
+            //Executes the Mail merge operation that replaces the matching field names with field values respectively
+            document.getMailMerge().execute(mergeFieldNames, mergeFieldValues);
+
+            //3. Save and close the WordDocument instance
+            document.save(downloadsFolderPath + File.separator + "MailMergeWord3.docx");
             document.close();
         }
         catch (Exception e) {
@@ -406,7 +457,6 @@ public class DocumentServiceImpl implements DocumentService{
     // TODO: Test this overloaded protectDocument method, from Frontend Word Editor or any other client
     /**
      * Protects the document and makes the content with only green backcolor fields editable
-     * @param  MultipartFile input stream
      * @return byte[]
      * @throws DocumentProcessingException
      */
@@ -506,7 +556,7 @@ public class DocumentServiceImpl implements DocumentService{
             document.save(tempFile.getAbsolutePath()); // save expects a String path
 
             // Read the file back into a byte array
-            byte[] protectedBytes = java.nio.file.Files.readAllBytes(tempFile.toPath());
+            byte[] protectedBytes = Files.readAllBytes(tempFile.toPath());
             return protectedBytes;
         } catch (Exception e) {
             throw new DocumentProcessingException("Failed to protect document.", e);
@@ -1357,7 +1407,7 @@ public class DocumentServiceImpl implements DocumentService{
     public void fetchPlantDetails(String plant) {
         // Plant details map
         Map<String, String> plantDetails = new HashMap<>();
-        plantDetails.put("plant1", plant);
+        plantDetails.put("plant", plant);
 
         // TODO Elasticsearch query to fetch plant details based on plant name
 
@@ -1389,4 +1439,5 @@ public class DocumentServiceImpl implements DocumentService{
         }
         return textContent.toString().trim();
     }
+
 }

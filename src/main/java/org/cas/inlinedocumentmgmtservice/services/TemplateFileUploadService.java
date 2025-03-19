@@ -107,6 +107,14 @@ public class TemplateFileUploadService {
         }
     }
 
+    public String uploadFileToFirebaseForSave(HttpEntity<MultiValueMap<String, Object>> requestEntity){
+        // Send the POST request to the firebase upload URL and capture the response.
+        ResponseEntity<String> response = restTemplate.postForEntity(FIREBASE_UPLOAD_URL, requestEntity, String.class);
+
+        // Return the response body which should contain the URL of the uploaded file.
+        return response.getBody();
+    }
+
 
 
 }

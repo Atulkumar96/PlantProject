@@ -12,8 +12,10 @@ import org.cas.inlinedocumentmgmtservice.exceptions.DocumentProcessingException;
 import org.cas.inlinedocumentmgmtservice.services.DocumentService;
 import org.cas.inlinedocumentmgmtservice.services.DocumentServiceImpl;
 import org.cas.inlinedocumentmgmtservice.services.TemplateFileUploadService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.cas.inlinedocumentmgmtservice.utils.CustomByteArrayResource;
+import org.springframework.http.*;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -220,15 +222,62 @@ public class DocumentController {
     }
 
     /**
-     * This endpoint is used to save the document to firebase and return the link
-     * Todo: Save the document to firebase and return the link
+     * This endpoint is used to save the document to firebase as clientId_Filename.docx and return the link
+     * Todo: Save the document to firebase as clientId_Filename.docx and return the link
      * @param data
      * @throws Exception
      */
 
-    //@CrossOrigin(origins = "*", allowedHeaders = "*")
     @PostMapping("Save")
-    public void saveFile(@RequestBody SaveDto data) throws Exception {
+    public ResponseEntity<String> saveFile(@RequestBody SaveDto data) throws Exception {
+        try {
+            // Validate that clientId is provided (ensure SaveDto has a clientId field)
+            if (data.getClientId() == null || data.getClientId().trim().isEmpty()) {
+                throw new Exception("Client ID is required to save the document");
+            }
+
+            // Use provided file name or default if not available
+            String originalFileName = data.getFileName();
+            if (originalFileName == null || originalFileName.isEmpty()) {
+                originalFileName = "Document1.docx";
+            }
+
+            // Prefix the file name with clientId
+            String newFileName = data.getClientId() + "_" + originalFileName;
+
+            // 1. Create the WordDocument in memory using Syncfusion helper from the provided content
+            WordDocument document = WordProcessorHelper.save(data.getContent());
+
+            // 2. Write the document to a ByteArrayOutputStream instead of a temporary file
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            String format = retrieveFileType(newFileName); // e.g., ".docx"
+            document.save(baos, getWFormatType(format));
+            document.close();
+
+            // Convert the output stream to a byte array and wrap it in the CustomByteArrayResource
+            CustomByteArrayResource resource = new CustomByteArrayResource(baos.toByteArray(), newFileName);
+
+            // Prepare a multi-part form-data request body using the CustomByteArrayResource
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", resource);
+
+            // Set up HTTP headers for multipart/form-data
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            return ResponseEntity.ok(templateFileUploadService.uploadFileToFirebaseForSave(requestEntity));
+        }
+        catch (Exception ex) {
+            throw new Exception("Error saving file: " + ex.getMessage());
+        }
+    }
+
+    // The below saveFile method saves the document to the local file system.
+    //@CrossOrigin(origins = "*", allowedHeaders = "*")
+    @PostMapping("SaveToLocal")
+    public void saveFileToLocal(@RequestBody SaveDto data) throws Exception {
         try {
             String name = data.getFileName();
             String format = retrieveFileType(name);

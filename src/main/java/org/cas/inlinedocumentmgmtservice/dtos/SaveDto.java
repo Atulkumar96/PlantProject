@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 public class SaveDto {
     private String _content;
     private String _fileName;
+    private String clientId;
 
     public String getContent() {
         return _content;
@@ -24,6 +25,15 @@ public class SaveDto {
 
     public String setFileName(String value) {
         _fileName = value;
+        return value;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public String setClientId(String value) {
+        clientId = value;
         return value;
     }
 }
